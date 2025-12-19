@@ -42,6 +42,27 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
         </ol>
       </section>
 
+      <section className="border border-white/10 p-4">
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="consent-check"
+            checked={consentAccepted}
+            onChange={(e) => setConsentAccepted(e.target.checked)}
+            className="mt-1 w-4 h-4 accent-white"
+          />
+          <label htmlFor="consent-check" className="text-white/60 cursor-pointer">
+            Я подтверждаю, что согласна с{' '}
+            <button 
+              onClick={() => setShowConsent(true)}
+              className="text-white/80 underline hover:text-white transition-colors"
+            >
+              условиями участия (Informed Consent)
+            </button>
+          </label>
+        </div>
+      </section>
+
       <section className="bg-yellow-500/10 border border-yellow-500/20 p-4">
         <p className="text-yellow-500/80 text-xs font-bold mb-2">⚠️ Предупреждение о триггерах</p>
         <p className="text-white/50 text-xs">
@@ -98,6 +119,27 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
             After uploading, you will see a link to permanently delete your video. It will only be shown once, save it in a safe place. Without this link, deletion is not possible to maintain anonymity.
           </li>
         </ol>
+      </section>
+
+      <section className="border border-white/10 p-4">
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="consent-check-en"
+            checked={consentAccepted}
+            onChange={(e) => setConsentAccepted(e.target.checked)}
+            className="mt-1 w-4 h-4 accent-white"
+          />
+          <label htmlFor="consent-check-en" className="text-white/60 cursor-pointer">
+            I confirm that I agree to the{' '}
+            <button 
+              onClick={() => setShowConsent(true)}
+              className="text-white/80 underline hover:text-white transition-colors"
+            >
+              terms of participation (Informed Consent)
+            </button>
+          </label>
+        </div>
       </section>
 
       <section className="bg-yellow-500/10 border border-yellow-500/20 p-4">
