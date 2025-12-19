@@ -27,21 +27,10 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
             <strong>Подтвердите своё согласие</strong><br />
             Вы подтверждаете, что согласны с условиями проекта и готовы загрузить своё видео.
           </li>
-          <li>
-            <strong>Перейдите на страницу записи</strong><br />
-            Запись проходит дистанционно, в безопасной для вас обстановке.
-          </li>
-          <li>
-            <strong>Запишите 5-секундное видео своих глаз</strong><br />
-            Лицо и тело остаются вне кадра. Видео фиксирует только взгляд — минимальная форма присутствия.
-          </li>
-          <li>
-            <strong>Сохраните одноразовую ссылку для удаления</strong><br />
-            После загрузки вам будет показана ссылка для полного удаления видео. Она отображается только один раз, сохраните её в безопасном месте. Без этой ссылки удалить запись невозможно, чтобы сохранить анонимность.
-          </li>
         </ol>
       </section>
 
+      {/* Блок с чекбоксом и ссылкой на Informed Consent после первых двух пунктов */}
       <section className="border border-white/10 p-4">
         <div className="flex items-start gap-3">
           <input
@@ -63,6 +52,34 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
         </div>
       </section>
 
+      <section>
+        <ol className="space-y-3 text-white/60 list-decimal list-inside start-3">
+          <li>
+            <strong>Перейдите на страницу записи</strong><br />
+            Запись проходит дистанционно, в безопасной для вас обстановке.
+          </li>
+          <li>
+            <strong>Запишите 5-секундное видео своих глаз</strong><br />
+            Лицо и тело остаются вне кадра. Видео фиксирует только взгляд — минимальная форма присутствия.
+          </li>
+          <li>
+            <strong>Сохраните одноразовую ссылку для удаления</strong><br />
+            После загрузки вам будет показана ссылка для полного удаления видео. Она отображается только один раз, сохраните её в безопасном месте. Без этой ссылки удалить запись невозможно, чтобы сохранить анонимность.
+          </li>
+        </ol>
+      </section>
+
+      {/* Кнопка "Перейти к записи" сразу после текста о записи */}
+      {consentAccepted && (
+        <Link
+          to="/camera"
+          onClick={onClose}
+          className="block w-full text-center py-4 bg-white text-black font-bold tracking-widest hover:bg-white/90 transition-colors"
+        >
+          ПЕРЕЙТИ К ЗАПИСИ
+        </Link>
+      )}
+
       <section className="bg-yellow-500/10 border border-yellow-500/20 p-4">
         <p className="text-yellow-500/80 text-xs font-bold mb-2">⚠️ Предупреждение о триггерах</p>
         <p className="text-white/50 text-xs">
@@ -80,16 +97,6 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
           Мы стремимся к прозрачности, уважению и безопасности участников даже в дистанционном формате.
         </p>
       </section>
-
-      {consentAccepted && (
-        <Link
-          to="/camera"
-          onClick={onClose}
-          className="block w-full text-center py-4 bg-white text-black font-bold tracking-widest hover:bg-white/90 transition-colors"
-        >
-          ПЕРЕЙТИ К ЗАПИСИ
-        </Link>
-      )}
     </div>
   );
 
@@ -106,21 +113,10 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
             <strong>Confirm your agreement</strong><br />
             You confirm that you agree to the terms of the project and are ready to upload your video.
           </li>
-          <li>
-            <strong>Go to the recording page</strong><br />
-            Recording is done remotely, in a safe environment.
-          </li>
-          <li>
-            <strong>Record a 5-second video of your eyes</strong><br />
-            Face and body remain out of frame. The video records only your gaze — a minimal form of presence.
-          </li>
-          <li>
-            <strong>Save the one-time delete link</strong><br />
-            After uploading, you will see a link to permanently delete your video. It will only be shown once, save it in a safe place. Without this link, deletion is not possible to maintain anonymity.
-          </li>
         </ol>
       </section>
 
+      {/* Checkbox block after first two points */}
       <section className="border border-white/10 p-4">
         <div className="flex items-start gap-3">
           <input
@@ -142,6 +138,34 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
         </div>
       </section>
 
+      <section>
+        <ol className="space-y-3 text-white/60 list-decimal list-inside start-3">
+          <li>
+            <strong>Go to the recording page</strong><br />
+            Recording is done remotely, in a safe environment.
+          </li>
+          <li>
+            <strong>Record a 5-second video of your eyes</strong><br />
+            Face and body remain out of frame. The video records only your gaze — a minimal form of presence.
+          </li>
+          <li>
+            <strong>Save the one-time delete link</strong><br />
+            After uploading, you will see a link to permanently delete your video. It will only be shown once, save it in a safe place. Without this link, deletion is not possible to maintain anonymity.
+          </li>
+        </ol>
+      </section>
+
+      {/* Button after recording text */}
+      {consentAccepted && (
+        <Link
+          to="/camera"
+          onClick={onClose}
+          className="block w-full text-center py-4 bg-white text-black font-bold tracking-widest hover:bg-white/90 transition-colors"
+        >
+          GO TO RECORDING
+        </Link>
+      )}
+
       <section className="bg-yellow-500/10 border border-yellow-500/20 p-4">
         <p className="text-yellow-500/80 text-xs font-bold mb-2">⚠️ Trigger warning</p>
         <p className="text-white/50 text-xs">
@@ -159,16 +183,6 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
           We are committed to transparency, respect, and participant safety even in a fully remote format.
         </p>
       </section>
-
-      {consentAccepted && (
-        <Link
-          to="/camera"
-          onClick={onClose}
-          className="block w-full text-center py-4 bg-white text-black font-bold tracking-widest hover:bg-white/90 transition-colors"
-        >
-          GO TO RECORDING
-        </Link>
-      )}
     </div>
   );
 
