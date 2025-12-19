@@ -12,19 +12,19 @@ const AboutModal = ({ isOpen, onClose }: Props) => {
   const contentRu = (
     <div className="space-y-6 text-sm leading-relaxed text-white/60">
       <p>
-        <span className="text-white/80">ГОРГОНА</span> — анонимный цифровой мемориал для тех, кто пережил насилие.
+        <span className="text-white/80">«Присутствуют»</span> — партиципаторная цифровая видео-инсталляция, основанная на анонимном участии женщин, переживших гендерное насилие.
       </p>
       <p>
-        Каждый посетитель может записать короткое видео своих глаз — без лица, без имени, без идентификации. Эти глаза становятся частью вечного полотна памяти.
+        Проект собирает пятисекундные крупноплановые записи глаз. Лицо, тело, голос и история остаются за пределами. Единственным визуальным элементом становится взгляд, определённый как минимальная форма присутствия, не требующая объяснения или доказательства.
       </p>
       <p>
-        Видео хранится навсегда. Единственный человек, который может его удалить — тот, кто его создал.
+        Участие в проекте добровольное и полностью анонимное. Каждая запись добавляется к инсталляции как равноправный фрагмент, не выделяемый и не иерархизируемый. Личные переживания существуют как факт присутствия.
       </p>
       <p>
-        Проект назван в честь Горгоны Медузы — существа, чей взгляд обращал в камень. Здесь взгляд становится символом несломленной воли.
+        Инсталляция представляет собой постоянно расширяющееся цифровое поле взглядов, воспроизводимых в непрерывном цикле. Зритель оказывается внутри коллективного визуального пространства, где множественность взглядов формирует общее, но не обезличенное присутствие.
       </p>
-      <p className="text-white/30 text-xs pt-4 border-t border-white/10">
-        Никакие личные данные не собираются. Все записи полностью анонимны.
+      <p>
+        Проект не стремится к репрезентации насилия и не предлагает его визуального образа. Он создаёт пространство, в котором фиксируется само существование тех, кто его пережил, без требования быть увиденными определённым образом.
       </p>
     </div>
   );
@@ -32,19 +32,19 @@ const AboutModal = ({ isOpen, onClose }: Props) => {
   const contentEn = (
     <div className="space-y-6 text-sm leading-relaxed text-white/60">
       <p>
-        <span className="text-white/80">GORGONA</span> is an anonymous digital memorial for those who have experienced violence.
+        <span className="text-white/80">"Present"</span> is a participatory digital video installation based on the anonymous participation of women who have experienced gender-based violence.
       </p>
       <p>
-        Each visitor can record a short video of their eyes — without face, without name, without identification. These eyes become part of an eternal canvas of memory.
+        The project collects five-second close-up recordings of eyes. Face, body, voice, and personal stories remain outside the frame. The only visual element is the gaze, defined as a minimal form of presence that requires no explanation or proof.
       </p>
       <p>
-        The video is stored forever. The only person who can delete it is the one who created it.
+        Participation is voluntary and fully anonymous. Each recording is added to the installation as an equal fragment, neither highlighted nor hierarchized. Personal experiences exist as a fact of presence.
       </p>
       <p>
-        The project is named after Gorgon Medusa — a being whose gaze turned others to stone. Here, the gaze becomes a symbol of unbroken will.
+        The installation represents a continuously expanding digital field of gazes, played in a seamless loop. The viewer is immersed in a collective visual space, where the multiplicity of gazes forms a shared but not depersonalized presence.
       </p>
-      <p className="text-white/30 text-xs pt-4 border-t border-white/10">
-        No personal data is collected. All recordings are completely anonymous.
+      <p>
+        The project does not aim to represent violence or provide visual depictions of it. It creates a space where the mere existence of those who have survived is recorded, without requiring them to be seen in any particular way.
       </p>
     </div>
   );
