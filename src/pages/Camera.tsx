@@ -29,8 +29,8 @@ const CONFIG = {
   // Sliding window for stability
   STABILITY_WINDOW: 5,
   STABILITY_MIN_VALID: 4,
-  // Blink tolerance
-  BLINK_TOLERANCE_MS: 400,
+  // Blink tolerance - increased to allow natural blinking
+  BLINK_TOLERANCE_MS: 600,
 };
 
 // FaceMesh landmark indices
@@ -244,16 +244,22 @@ const Camera = () => {
     if (currentState === 'idle' && newBgState === 'green') {
       startRecording();
     } else if (currentState === 'recording') {
-      if (newBgState === 'green') {
-        if (recorderRef.current?.state === 'paused') {
-          recorderRef.current.resume();
-          setIsRecording(true);
+      if (newBgState !== 'green') {
+        // Reset recording when eyes go out of frame or look away
+        if (recorderRef.current) {
+          recorderRef.current.stop();
+          recorderRef.current = null;
         }
-      } else {
-        if (recorderRef.current?.state === 'recording') {
-          recorderRef.current.pause();
-          setIsRecording(false);
+        if (recordIntervalRef.current) {
+          clearInterval(recordIntervalRef.current);
+          recordIntervalRef.current = null;
         }
+        chunksRef.current = [];
+        setState('idle');
+        setRecordTime(CONFIG.RECORD_SECONDS);
+        setIsRecording(false);
+        detectionWindowRef.current = [];
+        gazeWindowRef.current = [];
       }
     }
   }, [calculateEyeData, calculateGaze]);
@@ -685,6 +691,21 @@ const Camera = () => {
                 <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-white/30" />
               </div>
             )}
+          </div>
+          
+          {/* Status color explanation */}
+          <div className="mt-3 text-center">
+            <p className={`text-xs transition-colors duration-300 ${
+              bgState === 'green' 
+                ? 'text-green-400' 
+                : bgState === 'orange' 
+                  ? 'text-orange-400' 
+                  : 'text-red-400'
+            }`}>
+              {bgState === 'green' && t('camera.statusGreen')}
+              {bgState === 'orange' && t('camera.statusOrange')}
+              {bgState === 'red' && t('camera.statusRed')}
+            </p>
           </div>
         </div>
 

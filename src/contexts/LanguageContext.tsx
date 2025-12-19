@@ -36,6 +36,11 @@ export const translations: Translations = {
   'camera.lookAtCamera': { ru: 'Смотрите прямо в камеру', en: 'Look at the camera' },
   'camera.recording': { ru: 'ЗАПИСЬ', en: 'REC' },
   'camera.paused': { ru: 'ПАУЗА', en: 'PAUSED' },
+  
+  // Status colors explanation
+  'camera.statusGreen': { ru: 'Всё отлично — смотрите в камеру', en: 'Perfect — keep looking at the camera' },
+  'camera.statusOrange': { ru: 'Глаза смотрят не в камеру', en: 'Eyes are not looking at the camera' },
+  'camera.statusRed': { ru: 'Глаза вне рамки или слишком далеко', en: 'Eyes are out of frame or too far away' },
   'camera.saved': { ru: 'СОХРАНЕНО', en: 'SAVED' },
   'camera.deleteLink': { ru: 'Ссылка для удаления:', en: 'Delete link:' },
   'camera.viewCanvas': { ru: 'СМОТРЕТЬ ПОЛОТНО', en: 'VIEW CANVAS' },
