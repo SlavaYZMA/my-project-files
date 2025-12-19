@@ -76,12 +76,13 @@ const Index = () => {
           </div>
           
           {/* Navigation menu */}
-          <nav className="flex flex-wrap gap-x-4 gap-y-2 md:gap-x-6">
+          <nav className="flex flex-wrap gap-x-4 gap-y-2 md:gap-x-6 relative z-20">
             {navItems.map(item => (
               <button
                 key={item.key}
+                type="button"
                 onClick={() => setActiveModal(item.key)}
-                className="text-white/40 text-xs tracking-widest hover:text-white/80 transition-colors"
+                className="text-white/40 text-xs tracking-widest hover:text-white/80 transition-colors cursor-pointer py-2"
               >
                 {t(item.labelKey)}
               </button>
