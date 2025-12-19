@@ -16,10 +16,10 @@ const ContactsModal = ({ isOpen, onClose }: Props) => {
           {language === 'ru' ? 'ЭЛЕКТРОННАЯ ПОЧТА' : 'EMAIL'}
         </h3>
         <a 
-          href="mailto:eternalcanvas@proton.me"
+          href="mailto:vistrum@gmail.com"
           className="text-white/80 hover:text-white transition-colors text-lg"
         >
-          eternalcanvas@proton.me
+          vistrum@gmail.com
         </a>
       </section>
 
@@ -28,20 +28,20 @@ const ContactsModal = ({ isOpen, onClose }: Props) => {
           INSTAGRAM
         </h3>
         <a 
-          href="https://instagram.com/eternalcanvas_art"
+          href="https://instagram.com/iconicyzma"
           target="_blank"
           rel="noopener noreferrer"
           className="text-white/80 hover:text-white transition-colors text-lg"
         >
-          @eternalcanvas_art
+          @iconicyzma
         </a>
       </section>
 
       <section className="pt-6 border-t border-white/10">
         <p className="text-white/40 text-xs">
           {language === 'ru' 
-            ? 'По любым вопросам, включая запросы на удаление видео, обращайтесь по электронной почте.'
-            : 'For any questions, including video deletion requests, please contact us by email.'
+            ? 'По любым вопросам и предложениям, обращайтесь по электронной почте.'
+            : 'For any questions or suggestions, please contact us by email.'
           }
         </p>
       </section>
