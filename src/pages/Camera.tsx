@@ -242,10 +242,12 @@ const Camera = () => {
 
     // Auto recording logic
     if (currentState === 'idle' && newBgState === 'green') {
+      // Start recording only when eyes in frame AND looking at camera
       startRecording();
     } else if (currentState === 'recording') {
-      if (newBgState !== 'green') {
-        // Reset recording when eyes go out of frame or look away
+      // During recording, only check if eyes are in frame (gaze doesn't matter)
+      if (!detectionStable) {
+        // Eyes left the frame - reset recording
         if (recorderRef.current) {
           recorderRef.current.stop();
           recorderRef.current = null;
@@ -261,6 +263,7 @@ const Camera = () => {
         detectionWindowRef.current = [];
         gazeWindowRef.current = [];
       }
+      // If eyes are in frame but gaze changed, continue recording (gaze doesn't matter during recording)
     }
   }, [calculateEyeData, calculateGaze]);
 
@@ -430,8 +433,9 @@ const Camera = () => {
     let lastSecond = Date.now();
     
     recordIntervalRef.current = setInterval(() => {
-      // Only count down when actively recording (green state)
-      if (bgStateRef.current === 'green' && recorderRef.current?.state === 'recording') {
+      // During recording, count down as long as eyes are in frame (gaze doesn't matter)
+      // The recording will only continue if we're in 'recording' state (which means eyes are in frame)
+      if (stateRef.current === 'recording' && recorderRef.current?.state === 'recording') {
         const now = Date.now();
         if (now - lastSecond >= 1000) {
           lastSecond = now;
@@ -595,15 +599,28 @@ const Camera = () => {
         <ArrowLeft size={24} />
       </Link>
 
-      {/* Instruction text - always visible */}
+      {/* Instructions above frame */}
       {state !== 'preview' && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 text-center px-4">
-          <p className="text-white/60 text-xs md:text-sm tracking-wide max-w-md">
-            {bgState === 'orange' 
-              ? t('camera.lookAtCamera')
-              : t('camera.instruction')
-            }
-          </p>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 text-left px-4 max-w-lg">
+          <p className="text-white/80 text-xs font-bold mb-2">{t('camera.instructionTitle')}</p>
+          <ul className="text-white/60 text-xs space-y-1">
+            <li className="flex items-center gap-2">
+              <span className="w-3 h-3 border border-white/40 rounded-sm flex-shrink-0"></span>
+              {t('camera.instructionWhite')}
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-3 h-3 bg-red-600/60 rounded-sm flex-shrink-0"></span>
+              {t('camera.instructionRed')}
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-3 h-3 bg-yellow-500/60 rounded-sm flex-shrink-0"></span>
+              {t('camera.instructionYellow')}
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-3 h-3 bg-green-500/60 rounded-sm flex-shrink-0"></span>
+              {t('camera.instructionGreen')}
+            </li>
+          </ul>
         </div>
       )}
 
@@ -696,15 +713,22 @@ const Camera = () => {
           {/* Status color explanation */}
           <div className="mt-3 text-center">
             <p className={`text-xs transition-colors duration-300 ${
-              bgState === 'green' 
-                ? 'text-green-400' 
-                : bgState === 'orange' 
-                  ? 'text-orange-400' 
-                  : 'text-red-400'
+              state === 'recording' && isRecording
+                ? 'text-green-400'
+                : bgState === 'green' 
+                  ? 'text-green-400' 
+                  : bgState === 'orange' 
+                    ? 'text-orange-400' 
+                    : 'text-red-400'
             }`}>
-              {bgState === 'green' && t('camera.statusGreen')}
-              {bgState === 'orange' && t('camera.statusOrange')}
-              {bgState === 'red' && t('camera.statusRed')}
+              {state === 'recording' && isRecording 
+                ? t('camera.statusRecording')
+                : bgState === 'green' 
+                  ? t('camera.statusGreen')
+                  : bgState === 'orange' 
+                    ? t('camera.statusOrange')
+                    : t('camera.statusRed')
+              }
             </p>
           </div>
         </div>

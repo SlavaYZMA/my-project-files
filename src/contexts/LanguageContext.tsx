@@ -38,9 +38,18 @@ export const translations: Translations = {
   'camera.paused': { ru: 'ПАУЗА', en: 'PAUSED' },
   
   // Status colors explanation
-  'camera.statusGreen': { ru: 'Всё отлично — смотрите в камеру', en: 'Perfect — keep looking at the camera' },
-  'camera.statusOrange': { ru: 'Глаза смотрят не в камеру', en: 'Eyes are not looking at the camera' },
-  'camera.statusRed': { ru: 'Глаза вне рамки или слишком далеко', en: 'Eyes are out of frame or too far away' },
+  'camera.statusGreen': { ru: 'Глаза в рамке, смотрят в камеру → идёт запись', en: 'Eyes in frame, looking at camera → recording' },
+  'camera.statusOrange': { ru: 'Глаза в рамке, но взгляд не в камеру', en: 'Eyes in frame, but not looking at camera' },
+  'camera.statusRed': { ru: 'Глаза не в рамке / один глаз закрыт / слишком далеко', en: 'Eyes not in frame / one eye closed / too far' },
+  'camera.statusRecording': { ru: 'Запись идёт — можете смотреть в любую сторону', en: 'Recording — you can look anywhere' },
+  
+  // Instructions above frame
+  'camera.instructionTitle': { ru: 'Инструкция:', en: 'Instructions:' },
+  'camera.instructionWhite': { ru: 'Белая рамка: место для глаз', en: 'White frame: place for eyes' },
+  'camera.instructionRed': { ru: 'Красный фон: глаза не в рамке / один глаз закрыт', en: 'Red background: eyes not in frame / one eye closed' },
+  'camera.instructionYellow': { ru: 'Жёлтый фон: глаза в рамке, но взгляд не в камеру', en: 'Yellow background: eyes in frame, but not looking at camera' },
+  'camera.instructionGreen': { ru: 'Зелёный фон: глаза в рамке, смотрят в камеру → запись', en: 'Green background: eyes in frame, looking at camera → recording' },
+  
   'camera.saved': { ru: 'СОХРАНЕНО', en: 'SAVED' },
   'camera.deleteLink': { ru: 'Ссылка для удаления:', en: 'Delete link:' },
   'camera.viewCanvas': { ru: 'СМОТРЕТЬ ПОЛОТНО', en: 'VIEW CANVAS' },
