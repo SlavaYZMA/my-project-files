@@ -51,8 +51,10 @@ export const translations: Translations = {
   'camera.instructionGreen': { ru: 'Зелёный фон: глаза в рамке, смотрят в камеру → запись', en: 'Green background: eyes in frame, looking at camera → recording' },
   
   'camera.saved': { ru: 'СОХРАНЕНО', en: 'SAVED' },
-  'camera.deleteLink': { ru: 'Ссылка для удаления: Ссылка отображается один раз. С её помощью запись будет полностью удалена из проекта. Сохраняйте её в безопасном месте.', en: 'Delete link: The link is displayed only once. Using it will permanently delete the recording from the project. Please keep it in a safe place.
-' },
+  'camera.deleteLink': { 
+  ru: 'Ссылка для удаления: Ссылка отображается один раз. С её помощью запись будет полностью удалена из проекта. Сохраняйте её в безопасном месте.', 
+  en: 'Delete link: The link is displayed only once. Using it will permanently delete the recording from the project. Please keep it in a safe place.' 
+},
   'camera.viewCanvas': { ru: 'СМОТРЕТЬ ПОЛОТНО', en: 'VIEW CANVAS' },
   
   // Identity confirmation
