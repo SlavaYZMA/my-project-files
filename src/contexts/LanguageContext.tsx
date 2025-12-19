@@ -1,3 +1,14 @@
+import { createContext, useContext, useState, ReactNode } from 'react';
+
+type Language = 'ru' | 'en';
+
+interface Translations {
+  [key: string]: {
+    ru: string;
+    en: string;
+  };
+}
+
 export const translations: Translations = {
   // Navigation
   'nav.about': { ru: 'О проекте', en: 'About' },
@@ -9,10 +20,10 @@ export const translations: Translations = {
   // Index page
   'index.title': { ru: 'ГОРГОНА', en: 'GORGONA' },
   'index.subtitle1': { ru: 'Присутствуют', en: 'Present' },
-  'index.subtitle2': { ru: 'ПОЛОТНО', en: 'CANVAS' },
+  'index.subtitle2': { ru: '', en: '' },
   'index.description': { 
     ru: 'Цифровая видео-инсталляция, основанная на анонимном участии женщин, переживших гендерное насилие.\n\nЭто пространство фиксирует само существование тех, кто пережил травму — без требования быть увиденными определённым образом. Проект не репрезентирует насилие и не предлагает его визуального образа.',
-    en: 'A digital video installation based on the anonymous participation of women who have experienced gender-based violence.\n\nThis space records the mere existence of those who have survived trauma — without requiring them to be seen in any particular way. The project does not represent violence and does not offer any visual depiction of it.'
+    en: 'A digital video installation based on the anonymous participation of women who have experienced gender-based violence.\n\nThis space records the very existence of those who have survived trauma — without requiring to be seen in any particular way. The project does not represent violence or provide its visual depiction.'
   },
   'index.record': { ru: 'ЗАПИСАТЬ', en: 'RECORD' },
   'index.watch': { ru: 'СМОТРЕТЬ', en: 'VIEW' },
@@ -53,17 +64,17 @@ export const translations: Translations = {
   // Consent
   'camera.consent': { ru: 'Я принимаю условия участия', en: 'I accept the terms of participation' },
   'camera.viewConsent': { ru: 'Просмотреть условия', en: 'View terms' },
-  'camera.save': { ru: 'СОХРАНИТЬ НАВСЕГДА', en: 'SAVE FOREVER' },
+  'camera.save': { ru: 'СОХРАНИТЬ НА УСТРОЙСТВО', en: 'SAVE TO DEVICE' },
   'camera.retake': { ru: 'ПЕРЕСНЯТЬ', en: 'RETAKE' },
   'camera.download': { ru: 'СКАЧАТЬ', en: 'DOWNLOAD' },
   
   // Support
   'support.title': { ru: 'Ресурсы поддержки', en: 'Support Resources' },
   'support.trigger': { 
-    ru: '⚠️ Предупреждение о триггерах: Этот проект затрагивает темы насилия.',
-    en: '⚠️ Trigger Warning: This project addresses themes of violence.'
+    ru: '⚠️ Предупреждение о триггерах: Сильные эмоции во время участия — это нормальная реакция.',
+    en: '⚠️ Trigger Warning: Strong emotions during participation are normal.'
   },
-  'support.hotlines': { ru: 'Горячие линии:', en: 'Hotlines:' },
+  'support.hotlines': { ru: 'Горячие линии (по желанию):', en: 'Hotlines (optional):' },
   
   // Canvas
   'canvas.loading': { ru: 'ЗАГРУЗКА...', en: 'LOADING...' },
@@ -92,4 +103,36 @@ export const translations: Translations = {
     ru: 'Никакие личные данные не собираются. Все записи полностью анонимны.',
     en: 'No personal data is collected. All recordings are completely anonymous.'
   },
+};
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export const LanguageProvider = ({ children }: { children: ReactNode }) => {
+  const [language, setLanguage] = useState<Language>('ru');
+
+  const t = (key: string): string => {
+    const translation = translations[key];
+    if (!translation) return key;
+    return translation[language];
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+};
+
+export const useLanguage = () => {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error('useLanguage must be used within LanguageProvider');
+  }
+  return context;
 };
