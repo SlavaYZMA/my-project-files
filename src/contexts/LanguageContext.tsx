@@ -1,14 +1,3 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
-
-type Language = 'ru' | 'en';
-
-interface Translations {
-  [key: string]: {
-    ru: string;
-    en: string;
-  };
-}
-
 export const translations: Translations = {
   // Navigation
   'nav.about': { ru: 'О проекте', en: 'About' },
@@ -19,11 +8,11 @@ export const translations: Translations = {
   
   // Index page
   'index.title': { ru: 'ГОРГОНА', en: 'GORGONA' },
-  'index.subtitle1': { ru: 'ВЕЧНОЕ', en: 'ETERNAL' },
+  'index.subtitle1': { ru: 'Присутствуют', en: 'Present' },
   'index.subtitle2': { ru: 'ПОЛОТНО', en: 'CANVAS' },
   'index.description': { 
-    ru: 'Каждая пара глаз принадлежит человеку, пережившему насилие. Они остаются здесь навсегда, пока сам человек не решит иначе.',
-    en: 'Each pair of eyes belongs to someone who has experienced violence. They remain here forever, unless they choose otherwise.'
+    ru: 'Цифровая видео-инсталляция, основанная на анонимном участии женщин, переживших гендерное насилие.\n\nЭто пространство фиксирует само существование тех, кто пережил травму — без требования быть увиденными определённым образом. Проект не репрезентирует насилие и не предлагает его визуального образа.',
+    en: 'A digital video installation based on the anonymous participation of women who have experienced gender-based violence.\n\nThis space records the mere existence of those who have survived trauma — without requiring them to be seen in any particular way. The project does not represent violence and does not offer any visual depiction of it.'
   },
   'index.record': { ru: 'ЗАПИСАТЬ', en: 'RECORD' },
   'index.watch': { ru: 'СМОТРЕТЬ', en: 'VIEW' },
@@ -56,8 +45,8 @@ export const translations: Translations = {
   
   // Identity confirmation
   'camera.identity': {
-    ru: 'Я подтверждаю, что идентифицирую себя как женщина, пережившая гендерное насилие, и делаю это честно.',
-    en: 'I confirm that I identify as a woman who has experienced gender-based violence, and I do so honestly.'
+    ru: 'Я подтверждаю, что идентифицирую себя как женщина, пережившая гендерное насилие.',
+    en: 'I confirm that I identify as a woman who has experienced gender-based violence.'
   },
   'camera.confirm': { ru: 'ПОДТВЕРДИТЬ', en: 'CONFIRM' },
   
@@ -103,36 +92,4 @@ export const translations: Translations = {
     ru: 'Никакие личные данные не собираются. Все записи полностью анонимны.',
     en: 'No personal data is collected. All recordings are completely anonymous.'
   },
-};
-
-interface LanguageContextType {
-  language: Language;
-  setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
-}
-
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-
-export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-  const [language, setLanguage] = useState<Language>('ru');
-
-  const t = (key: string): string => {
-    const translation = translations[key];
-    if (!translation) return key;
-    return translation[language];
-  };
-
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      {children}
-    </LanguageContext.Provider>
-  );
-};
-
-export const useLanguage = () => {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error('useLanguage must be used within LanguageProvider');
-  }
-  return context;
 };
