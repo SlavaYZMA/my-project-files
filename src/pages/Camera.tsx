@@ -361,16 +361,14 @@ const Camera = () => {
     }
     
     // Check if video has valid dimensions
-    if (videoRef.current.videoWidth === 0 || videoRef.current.videoHeight === 0) {
+    const videoW = videoRef.current.videoWidth;
+    const videoH = videoRef.current.videoHeight;
+    if (videoW === 0 || videoH === 0) {
       console.log('Video dimensions not available, skipping recording start');
       return;
     }
     
-    setState('recording');
-    setRecordTime(CONFIG.RECORD_SECONDS);
-    chunksRef.current = [];
-    setIsRecording(true);
-
+    // Setup canvas first
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
     const dpr = window.devicePixelRatio || 1;
@@ -378,43 +376,70 @@ const Camera = () => {
     canvas.height = CONFIG.FRAME_HEIGHT * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    // Draw first frame to ensure canvas is not empty
+    ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+    ctx.save();
+    ctx.translate(CONFIG.FRAME_WIDTH, 0);
+    ctx.scale(-1, 1);
+
+    const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+    const scaledW = videoW / effectiveZoom;
+    const scaledH = videoH / effectiveZoom;
+    const scale = Math.max(CONFIG.FRAME_WIDTH / scaledW, CONFIG.FRAME_HEIGHT / scaledH);
+    const sw = Math.round(CONFIG.FRAME_WIDTH / scale);
+    const sh = Math.round(CONFIG.FRAME_HEIGHT / scale);
+    const sx = Math.round((videoW - sw) / 2);
+    const sy = Math.round((videoH - sh) / 2);
+
+    ctx.drawImage(videoRef.current!, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+    ctx.restore();
+
+    // Check if first frame is valid (not all black)
+    const imageData = ctx.getImageData(0, 0, 10, 10);
+    const hasContent = imageData.data.some((v, i) => i % 4 !== 3 && v > 10);
+    if (!hasContent) {
+      console.log('First frame appears black, waiting...');
+      return;
+    }
+
+    // Now we can start recording
+    setState('recording');
+    setRecordTime(CONFIG.RECORD_SECONDS);
+    chunksRef.current = [];
+    setIsRecording(true);
+
     let isActive = true;
+    let animationFrameId: number;
 
     const drawFrame = () => {
       if (!videoRef.current || !isActive) return;
       
-      // Additional check during recording
-      if (videoRef.current.readyState < 2) {
-        requestAnimationFrame(drawFrame);
-        return;
+      if (videoRef.current.readyState >= 2) {
+        ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        ctx.save();
+        ctx.translate(CONFIG.FRAME_WIDTH, 0);
+        ctx.scale(-1, 1);
+
+        const vW = videoRef.current.videoWidth || CONFIG.FRAME_WIDTH;
+        const vH = videoRef.current.videoHeight || CONFIG.FRAME_HEIGHT;
+        const effZoom = supportsHardwareZoom ? 1 : zoom;
+        const scW = vW / effZoom;
+        const scH = vH / effZoom;
+        const sc = Math.max(CONFIG.FRAME_WIDTH / scW, CONFIG.FRAME_HEIGHT / scH);
+        const sww = Math.round(CONFIG.FRAME_WIDTH / sc);
+        const shh = Math.round(CONFIG.FRAME_HEIGHT / sc);
+        const sxx = Math.round((vW - sww) / 2);
+        const syy = Math.round((vH - shh) / 2);
+
+        ctx.drawImage(videoRef.current, sxx, syy, sww, shh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        ctx.restore();
       }
 
-      ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-      ctx.save();
-      ctx.translate(CONFIG.FRAME_WIDTH, 0);
-      ctx.scale(-1, 1);
-
-      const videoW = videoRef.current.videoWidth || CONFIG.FRAME_WIDTH;
-      const videoH = videoRef.current.videoHeight || CONFIG.FRAME_HEIGHT;
-
-      const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-      const scaledW = videoW / effectiveZoom;
-      const scaledH = videoH / effectiveZoom;
-      const scale = Math.max(CONFIG.FRAME_WIDTH / scaledW, CONFIG.FRAME_HEIGHT / scaledH);
-      const sw = Math.round(CONFIG.FRAME_WIDTH / scale);
-      const sh = Math.round(CONFIG.FRAME_HEIGHT / scale);
-      const sx = Math.round((videoW - sw) / 2);
-      const sy = Math.round((videoH - sh) / 2);
-
-      ctx.drawImage(videoRef.current, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-      ctx.restore();
-
       if (isActive) {
-        requestAnimationFrame(drawFrame);
+        animationFrameId = requestAnimationFrame(drawFrame);
       }
     };
     
-    // Draw first frame immediately to ensure canvas has content
     drawFrame();
 
     const canvasStream = canvas.captureStream(CONFIG.FPS);
@@ -434,14 +459,13 @@ const Camera = () => {
 
     recorder.onstop = () => {
       isActive = false;
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
       
       if (chunksRef.current.length > 0) {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         
-        // Validate blob has reasonable size (not just black frames)
         if (blob.size < 1000) {
           console.warn('Recorded blob too small, likely black frames');
-          // Reset and let user try again
           chunksRef.current = [];
           setState('idle');
           setRecordTime(CONFIG.RECORD_SECONDS);
@@ -459,35 +483,33 @@ const Camera = () => {
       }
     };
 
-    // Small delay to ensure canvas is drawing before capturing
-    setTimeout(() => {
-      if (recorder.state === 'inactive') {
-        recorder.start(100);
-      }
-    }, 50);
+    recorder.start(100);
 
-    let count = CONFIG.RECORD_SECONDS;
-    let lastSecond = Date.now();
+    // Simple countdown timer using setInterval with fixed 1 second intervals
+    let remainingSeconds = CONFIG.RECORD_SECONDS;
     
     recordIntervalRef.current = setInterval(() => {
-      // During recording, count down as long as eyes are in frame (gaze doesn't matter)
-      // The recording will only continue if we're in 'recording' state (which means eyes are in frame)
-      if (stateRef.current === 'recording' && recorderRef.current?.state === 'recording') {
-        const now = Date.now();
-        if (now - lastSecond >= 1000) {
-          lastSecond = now;
-          count--;
-          setRecordTime(count);
-          if (count <= 0) {
-            if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
-            recordIntervalRef.current = null;
-            if (recorder.state === 'recording') {
-              recorder.stop();
-            }
-          }
+      if (stateRef.current !== 'recording') {
+        if (recordIntervalRef.current) {
+          clearInterval(recordIntervalRef.current);
+          recordIntervalRef.current = null;
+        }
+        return;
+      }
+      
+      remainingSeconds--;
+      setRecordTime(remainingSeconds);
+      
+      if (remainingSeconds <= 0) {
+        if (recordIntervalRef.current) {
+          clearInterval(recordIntervalRef.current);
+          recordIntervalRef.current = null;
+        }
+        if (recorder.state === 'recording') {
+          recorder.stop();
         }
       }
-    }, 100);
+    }, 1000);
   }, [zoom, supportsHardwareZoom]);
 
   const resetRecording = () => {
