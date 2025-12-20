@@ -11,9 +11,6 @@ interface EyeRecord {
 
 const ADMIN_SECRET_KEY = 'gorgona_admin_secret';
 const ITEMS_PER_PAGE = 100;
-const VIDEO_WIDTH = 512;
-const VIDEO_HEIGHT = 128;
-const MIN_VIDEO_WIDTH = 150;
 
 const Canvas = () => {
   const { t } = useLanguage();
@@ -26,54 +23,16 @@ const Canvas = () => {
   const [page, setPage] = useState(0);
   const [deletingCid, setDeletingCid] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [itemWidth, setItemWidth] = useState(VIDEO_WIDTH);
-  const [itemsPerRow, setItemsPerRow] = useState(4);
-  
-  const containerRef = useRef<HTMLDivElement | null>(null);
+
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const storageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/eyes/`;
 
-  // Calculate layout: adaptive grid, no horizontal gaps when enough content
-  const calculateLayout = useCallback(() => {
-    const viewportWidth = window.innerWidth;
-    
-    // Calculate base items per row at standard size
-    const baseItemsPerRow = Math.max(1, Math.floor(viewportWidth / VIDEO_WIDTH));
-    
-    // If viewport is smaller than MIN_VIDEO_WIDTH, use min width with scroll
-    if (viewportWidth < MIN_VIDEO_WIDTH) {
-      setItemWidth(MIN_VIDEO_WIDTH);
-      setItemsPerRow(1);
-      return;
-    }
-
-    // Calculate item width to exactly fill viewport
-    // This eliminates horizontal gaps
-    const calculatedWidth = viewportWidth / baseItemsPerRow;
-    
-    // Ensure minimum width
-    if (calculatedWidth < MIN_VIDEO_WIDTH) {
-      const adjustedItemsPerRow = Math.max(1, Math.floor(viewportWidth / MIN_VIDEO_WIDTH));
-      setItemWidth(viewportWidth / adjustedItemsPerRow);
-      setItemsPerRow(adjustedItemsPerRow);
-    } else {
-      setItemWidth(calculatedWidth);
-      setItemsPerRow(baseItemsPerRow);
-    }
-  }, []);
-
-  useEffect(() => {
-    calculateLayout();
-    window.addEventListener('resize', calculateLayout);
-    return () => window.removeEventListener('resize', calculateLayout);
-  }, [calculateLayout]);
-
   useEffect(() => {
     const adminParam = searchParams.get('admin');
     const storedSecret = localStorage.getItem(ADMIN_SECRET_KEY);
-    
+
     if (adminParam === '1' && storedSecret) {
       setIsAdmin(true);
     } else if (adminParam === '1') {
@@ -93,7 +52,7 @@ const Canvas = () => {
       const { data, error: queryError } = await supabase
         .from('eyes')
         .select('cid, created_at')
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false }) // новые сверху
         .range(from, to);
 
       if (queryError) throw queryError;
@@ -128,9 +87,12 @@ const Canvas = () => {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setEyes(prev => [...prev, payload.new as EyeRecord]);
+            // новое видео занимает верхнее место
+            setEyes(prev => [payload.new as EyeRecord, ...prev]);
           } else if (payload.eventType === 'DELETE') {
-            setEyes(prev => prev.filter(e => e.cid !== (payload.old as EyeRecord).cid));
+            setEyes(prev =>
+              prev.filter(e => e.cid !== (payload.old as EyeRecord).cid)
+            );
           }
         }
       )
@@ -194,7 +156,7 @@ const Canvas = () => {
       } else {
         alert('Ошибка: ' + (result.error || 'Unknown error'));
       }
-    } catch (err: any) {
+    } catch {
       alert('Ошибка сети');
     } finally {
       setDeletingCid(null);
@@ -210,13 +172,12 @@ const Canvas = () => {
     }
   };
 
-  // Calculate item height maintaining aspect ratio
-  const itemHeight = Math.round((itemWidth / VIDEO_WIDTH) * VIDEO_HEIGHT);
-
   if (loading && eyes.length === 0) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center font-mono">
-        <p className="text-white/30 text-sm tracking-widest">{t('canvas.loading')}</p>
+        <p className="text-white/30 text-sm tracking-widest">
+          {t('canvas.loading')}
+        </p>
       </div>
     );
   }
@@ -231,13 +192,13 @@ const Canvas = () => {
 
   return (
     <div className="min-h-screen bg-black font-mono">
-      {/* Fixed header */}
+      {/* Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black via-black/80 to-transparent pointer-events-none">
         <div className="flex items-center justify-between p-4 md:p-6 pointer-events-auto">
           <Link to="/" className="text-white/40 hover:text-white transition-colors">
             <ArrowLeft size={24} />
           </Link>
-          
+
           <div className="flex items-center gap-4">
             {isAdmin && (
               <span className="text-red-500 text-xs font-bold tracking-widest">
@@ -252,12 +213,14 @@ const Canvas = () => {
             </button>
           </div>
         </div>
-        
+
         {showAdminPanel && (
           <div className="bg-black/95 border-b border-white/10 p-4 pointer-events-auto">
             {isAdmin ? (
               <div className="text-center">
-                <p className="text-white/40 text-xs mb-3">Режим администратора активен</p>
+                <p className="text-white/40 text-xs mb-3">
+                  Режим администратора активен
+                </p>
                 <button
                   onClick={() => {
                     localStorage.removeItem(ADMIN_SECRET_KEY);
@@ -285,24 +248,26 @@ const Canvas = () => {
 
       {eyes.length === 0 ? (
         <div className="min-h-screen flex items-center justify-center">
-          <p className="text-white/20 text-sm tracking-widest">{t('canvas.empty')}</p>
+          <p className="text-white/20 text-sm tracking-widest">
+            {t('canvas.empty')}
+          </p>
         </div>
       ) : (
         <>
-          {/* Full-width grid - no horizontal gaps */}
-          <div 
-            ref={containerRef}
-            className="flex flex-wrap"
+          {/* GRID */}
+          <div
+            className="
+              grid
+              grid-cols-1
+              sm:grid-cols-2
+              lg:grid-cols-4
+            "
             style={{ paddingTop: 80 }}
           >
             {eyes.map((eye) => (
               <div
                 key={eye.cid}
-                className="relative group flex-shrink-0"
-                style={{ 
-                  width: itemWidth, 
-                  height: itemHeight,
-                }}
+                className="relative group w-full aspect-[4/1] overflow-hidden"
               >
                 <video
                   src={`${storageUrl}${eye.cid}`}
@@ -312,11 +277,9 @@ const Canvas = () => {
                   playsInline
                   className="w-full h-full object-cover block"
                 />
-                
-                {/* Hover overlay */}
+
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
-                
-                {/* Admin delete button */}
+
                 {isAdmin && (
                   <button
                     onClick={() => handleAdminDelete(eye.cid)}
@@ -334,15 +297,14 @@ const Canvas = () => {
             ))}
           </div>
 
-          {/* Scroll hint shadow at bottom */}
           {hasMore && (
-            <div className="fixed bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-          )}
-
-          {/* Load more trigger */}
-          {hasMore && (
-            <div ref={loadMoreRef} className="h-32 flex items-center justify-center">
-              <p className="text-white/20 text-xs tracking-widest">{t('canvas.loading')}</p>
+            <div
+              ref={loadMoreRef}
+              className="h-32 flex items-center justify-center"
+            >
+              <p className="text-white/20 text-xs tracking-widest">
+                {t('canvas.loading')}
+              </p>
             </div>
           )}
         </>
