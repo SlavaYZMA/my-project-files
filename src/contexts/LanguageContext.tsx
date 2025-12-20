@@ -41,7 +41,9 @@ export const translations: Translations = {
   'camera.statusGreen': { ru: 'Глаза в рамке, смотрят в камеру → идёт запись', en: 'Eyes in frame, looking at camera → recording' },
   'camera.statusOrange': { ru: 'Глаза в рамке, но взгляд не в камеру', en: 'Eyes in frame, but not looking at camera' },
   'camera.statusRed': { ru: 'Глаза не в рамке / один глаз закрыт / слишком далеко', en: 'Eyes not in frame / one eye closed / too far' },
+  'camera.statusBlack': { ru: 'Глаза не в рамке / слишком далеко', en: 'Eyes not in frame / too far' },
   'camera.statusRecording': { ru: 'Запись идёт — можете смотреть в любую сторону', en: 'Recording — you can look anywhere' },
+  'camera.instructionBlack': { ru: 'Чёрный фон: глаза не в рамке / слишком далеко', en: 'Black background: eyes not in frame / too far' },
   
   // Instructions above frame
   'camera.instructionTitle': { ru: 'Инструкция:', en: 'Instructions:' },
@@ -70,6 +72,12 @@ export const translations: Translations = {
   'camera.save': { ru: 'ДОБАВИТЬ В ПОЛОТНО', en: 'ADD TO CANVAS' },
   'camera.retake': { ru: 'ПЕРЕСНЯТЬ', en: 'RETAKE' },
   'camera.download': { ru: 'СКАЧАТЬ', en: 'DOWNLOAD' },
+  'camera.welcome': { ru: 'Добро пожаловать', en: 'Welcome' },
+  'camera.start': { ru: 'НАЧАТЬ', en: 'START' },
+  'camera.saving': { ru: 'СОХРАНЕНИЕ...', en: 'SAVING...' },
+  'camera.saveForever': { ru: 'СОХРАНИТЬ НАВСЕГДА', en: 'SAVE FOREVER' },
+  'camera.recordAnother': { ru: 'ЗАПИСАТЬ ЕЩЁ', en: 'RECORD ANOTHER' },
+  'common.back': { ru: 'Назад', en: 'Back' },
   
   // Support
   'support.title': { ru: 'Ресурсы поддержки', en: 'Support Resources' },
