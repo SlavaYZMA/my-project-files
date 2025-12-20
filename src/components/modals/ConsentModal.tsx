@@ -4,9 +4,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onAccept?: () => void;
 }
 
-const ConsentModal = ({ isOpen, onClose }: Props) => {
+const ConsentModal = ({ isOpen, onClose, onAccept }: Props) => {
   const { language } = useLanguage();
 
   const contentRu = (
@@ -220,6 +221,22 @@ const ConsentModal = ({ isOpen, onClose }: Props) => {
       title="INFORMED CONSENT / ИНФОРМИРОВАННОЕ СОГЛАСИЕ"
     >
       {language === 'ru' ? contentRu : contentEn}
+      {onAccept && (
+        <div className="mt-6 flex gap-4">
+          <button
+            onClick={onAccept}
+            className="flex-1 px-6 py-3 bg-white text-black rounded-full hover:bg-white/90 transition-colors font-medium"
+          >
+            {language === 'ru' ? 'ПРИНЯТЬ И СОХРАНИТЬ' : 'ACCEPT AND SAVE'}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-6 py-3 border border-white/30 rounded-full hover:bg-white/10 transition-colors"
+          >
+            {language === 'ru' ? 'ОТМЕНА' : 'CANCEL'}
+          </button>
+        </div>
+      )}
     </NavModal>
   );
 };
