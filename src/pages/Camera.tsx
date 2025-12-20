@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import ConsentModal from '@/components/modals/ConsentModal';
 
 type RecordingState = 'identity' | 'idle' | 'recording' | 'preview';
-type BackgroundState = 'red' | 'orange' | 'green';
+type BackgroundState = 'black' | 'orange' | 'green';
 
 const CONFIG = {
   FRAME_WIDTH: 512,
@@ -79,7 +79,7 @@ const Camera = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [zoom, setZoom] = useState(1.5);
   const [supportsHardwareZoom, setSupportsHardwareZoom] = useState(false);
-  const [bgState, setBgState] = useState<BackgroundState>('red');
+  const [bgState, setBgState] = useState<BackgroundState>('black');
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -202,7 +202,7 @@ const Camera = () => {
         // Not a blink - actually lost detection
         detectionWindowRef.current = [];
         gazeWindowRef.current = [];
-        setBgState('red');
+    setBgState('black');
         
         if (currentState === 'recording' && recorderRef.current?.state === 'recording') {
           recorderRef.current.pause();
@@ -231,7 +231,7 @@ const Camera = () => {
     // Determine background state
     let newBgState: BackgroundState;
     if (!detectionStable) {
-      newBgState = 'red';
+      newBgState = 'black';
     } else if (!gazeStable) {
       newBgState = 'orange';
     } else {
@@ -354,6 +354,18 @@ const Camera = () => {
   const startRecording = useCallback(() => {
     if (stateRef.current !== 'idle') return;
     
+    // Check if video is ready
+    if (!videoRef.current || videoRef.current.readyState < 2) {
+      console.log('Video not ready, skipping recording start');
+      return;
+    }
+    
+    // Check if video has valid dimensions
+    if (videoRef.current.videoWidth === 0 || videoRef.current.videoHeight === 0) {
+      console.log('Video dimensions not available, skipping recording start');
+      return;
+    }
+    
     setState('recording');
     setRecordTime(CONFIG.RECORD_SECONDS);
     chunksRef.current = [];
@@ -370,6 +382,12 @@ const Camera = () => {
 
     const drawFrame = () => {
       if (!videoRef.current || !isActive) return;
+      
+      // Additional check during recording
+      if (videoRef.current.readyState < 2) {
+        requestAnimationFrame(drawFrame);
+        return;
+      }
 
       ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
       ctx.save();
@@ -395,6 +413,8 @@ const Camera = () => {
         requestAnimationFrame(drawFrame);
       }
     };
+    
+    // Draw first frame immediately to ensure canvas has content
     drawFrame();
 
     const canvasStream = canvas.captureStream(CONFIG.FPS);
@@ -417,6 +437,18 @@ const Camera = () => {
       
       if (chunksRef.current.length > 0) {
         const blob = new Blob(chunksRef.current, { type: mimeType });
+        
+        // Validate blob has reasonable size (not just black frames)
+        if (blob.size < 1000) {
+          console.warn('Recorded blob too small, likely black frames');
+          // Reset and let user try again
+          chunksRef.current = [];
+          setState('idle');
+          setRecordTime(CONFIG.RECORD_SECONDS);
+          setIsRecording(false);
+          return;
+        }
+        
         setRecordedBlob(blob);
         setState('preview');
 
@@ -427,7 +459,12 @@ const Camera = () => {
       }
     };
 
-    recorder.start(100);
+    // Small delay to ensure canvas is drawing before capturing
+    setTimeout(() => {
+      if (recorder.state === 'inactive') {
+        recorder.start(100);
+      }
+    }, 50);
 
     let count = CONFIG.RECORD_SECONDS;
     let lastSecond = Date.now();
@@ -461,7 +498,7 @@ const Camera = () => {
     setConsentAccepted(false);
     detectionWindowRef.current = [];
     gazeWindowRef.current = [];
-    setBgState('red');
+    setBgState('black');
     setIsRecording(false);
     if (previewRef.current) {
       previewRef.current.src = '';
@@ -555,7 +592,7 @@ const Camera = () => {
     switch (bgState) {
       case 'green': return 'bg-green-900/30';
       case 'orange': return 'bg-orange-900/30';
-      case 'red': return 'bg-red-900/30';
+      case 'black': return 'bg-black';
       default: return 'bg-black';
     }
   };
@@ -609,7 +646,7 @@ const Camera = () => {
               {t('camera.instructionWhite')}
             </li>
             <li className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-red-600/60 rounded-sm flex-shrink-0"></span>
+              <span className="w-3 h-3 bg-black border border-white/30 rounded-sm flex-shrink-0"></span>
               {t('camera.instructionRed')}
             </li>
             <li className="flex items-center gap-2">
@@ -654,7 +691,7 @@ const Camera = () => {
                   ? 'inset 0 0 0 3px rgba(34, 197, 94, 0.6)'
                   : bgState === 'orange'
                     ? 'inset 0 0 0 3px rgba(249, 115, 22, 0.6)'
-                    : 'inset 0 0 0 3px rgba(239, 68, 68, 0.6)'
+                    : 'inset 0 0 0 2px rgba(255, 255, 255, 0.3)'
             }}
           >
             <video
@@ -688,7 +725,7 @@ const Camera = () => {
                       ? 'rgba(34, 197, 94, 0.4)' 
                       : bgState === 'orange'
                         ? 'rgba(249, 115, 22, 0.3)'
-                        : 'rgba(239, 68, 68, 0.3)'
+                        : 'rgba(255, 255, 255, 0.2)'
                   }}
                 />
                 <div 
@@ -698,7 +735,7 @@ const Camera = () => {
                       ? 'rgba(34, 197, 94, 0.4)' 
                       : bgState === 'orange'
                         ? 'rgba(249, 115, 22, 0.3)'
-                        : 'rgba(239, 68, 68, 0.3)'
+                        : 'rgba(255, 255, 255, 0.2)'
                   }}
                 />
                 
@@ -719,7 +756,7 @@ const Camera = () => {
                   ? 'text-green-400' 
                   : bgState === 'orange' 
                     ? 'text-orange-400' 
-                    : 'text-red-400'
+                    : 'text-white/60'
             }`}>
               {state === 'recording' && isRecording 
                 ? t('camera.statusRecording')
