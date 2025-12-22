@@ -104,7 +104,6 @@ const Camera = () => {
 
   const calculateGaze = useCallback((landmarks: Results['multiFaceLandmarks'][0]): boolean => {
     if (!landmarks || landmarks.length < 478) return false;
-
     const leftIris = landmarks[LEFT_IRIS_CENTER];
     const leftInner = landmarks[LEFT_EYE_INNER];
     const leftOuter = landmarks[LEFT_EYE_OUTER];
@@ -131,7 +130,6 @@ const Camera = () => {
 
     const leftValid = leftGazeX <= CONFIG.GAZE_THRESHOLD_X && leftGazeY <= CONFIG.GAZE_THRESHOLD_Y;
     const rightValid = rightGazeX <= CONFIG.GAZE_THRESHOLD_X && rightGazeY <= CONFIG.GAZE_THRESHOLD_Y;
-
     return leftValid && rightValid;
   }, []);
 
@@ -190,7 +188,6 @@ const Camera = () => {
     if (currentState === 'identity' || currentState === 'preview') return;
 
     const now = Date.now();
-
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       if (blinkStartRef.current === null) {
         blinkStartRef.current = now;
@@ -212,12 +209,11 @@ const Camera = () => {
     const landmarks = results.multiFaceLandmarks[0];
     const eyeData = calculateEyeData(landmarks);
     const gazeValid = calculateGaze(landmarks);
-
     const eyesDetected = eyeData.leftEye !== null && eyeData.rightEye !== null;
     const eyesInFrame = eyeData.bothInFrame;
     const validSize = eyeData.hasValidSize;
-
     const detectionValid = eyesDetected && eyesInFrame && validSize;
+
     const detectionStable = updateWindow(detectionWindowRef.current, detectionValid);
     const gazeStable = updateWindow(gazeWindowRef.current, gazeValid);
 
@@ -304,55 +300,54 @@ const Camera = () => {
         if (!videoRef.current || !isActive) return;
         const video = videoRef.current;
 
+        // 1. Очистка
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
         ctx.save();
+        // 2. Отражение (селфи-зеркало)
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
 
         const videoW = video.videoWidth;
         const videoH = video.videoHeight;
-        const inputAspect = videoW / videoH;
-        const outputAspect = CONFIG.FRAME_WIDTH / CONFIG.FRAME_HEIGHT;
 
-        let sw, sh, sx, sy;
-        if (inputAspect > outputAspect) {
-          sh = videoH;
-          sw = videoH * outputAspect;
-          sx = (videoW - sw) / 2;
-          sy = 0;
-        } else {
-          sw = videoW;
-          sh = videoW / outputAspect;
-          sx = 0;
-          sy = (videoH - sh) / 2;
-        }
+        // 3. Расчет масштаба (Cover) — чтобы полностью заполнить 512x128
+        const scale = Math.max(CONFIG.FRAME_WIDTH / videoW, CONFIG.FRAME_HEIGHT / videoH);
 
+        // 4. Размеры области, которую берём из видео
+        const sw = CONFIG.FRAME_WIDTH / scale;
+        const sh = CONFIG.FRAME_HEIGHT / scale;
+
+        // 5. Центрирование по горизонтали и вертикали
+        const sx = (videoW - sw) / 2;
+        const sy = (videoH - sh) / 2;
+
+        // 6. Программный зум (если аппаратный не поддерживается)
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-        if (effectiveZoom > 1) {
-          const zoomW = sw / effectiveZoom;
-          const zoomH = sh / effectiveZoom;
-          sx += (sw - zoomW) / 2;
-          sy += (sh - zoomH) / 2;
-          sw = zoomW;
-          sh = zoomH;
-        }
+        const finalSw = sw / effectiveZoom;
+        const finalSh = sh / effectiveZoom;
+        const finalSx = sx + (sw - finalSw) / 2;
+        const finalSy = sy + (sh - finalSh) / 2;
 
         try {
-          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+          ctx.drawImage(
+            video,
+            finalSx, finalSy, finalSw, finalSh,    // source rectangle
+            0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT  // destination rectangle
+          );
 
-          // === ТЕСТОВАЯ КРАСНАЯ РАМКА ПО КРАЯМ КАДРА ===
-          ctx.restore(); // Выходим из зеркального отражения
+          // Тестовая красная рамка (можно убрать в продакшене)
+          ctx.restore(); // выходим из зеркала для рисования рамки
           ctx.strokeStyle = '#FF0000';
           ctx.lineWidth = 4;
           ctx.strokeRect(2, 2, CONFIG.FRAME_WIDTH - 4, CONFIG.FRAME_HEIGHT - 4);
-
-          // Возвращаем трансформацию для следующего кадра
           ctx.save();
           ctx.translate(CONFIG.FRAME_WIDTH, 0);
           ctx.scale(-1, 1);
-        } catch (e) {}
+        } catch (e: any) {
+          addLog("Draw Error: " + e.message);
+        }
 
         if (isActive) requestAnimationFrame(drawFrame);
       };
@@ -360,7 +355,6 @@ const Camera = () => {
       drawFrame();
 
       const canvasStream = canvas.captureStream(CONFIG.FPS);
-
       let mimeType = '';
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
@@ -459,8 +453,8 @@ const Camera = () => {
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
           audio: false
         });
-
         streamRef.current = stream;
+
         const track = stream.getVideoTracks()[0];
         const capabilities = track.getCapabilities?.() as Record<string, unknown>;
         if (capabilities && 'zoom' in capabilities) {
@@ -551,6 +545,7 @@ const Camera = () => {
     try {
       const fileId = crypto.randomUUID();
       const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.webm`;
+
       const { error: uploadError } = await supabase.storage
         .from('eyes')
         .upload(fileName, recordedBlob, {
@@ -733,7 +728,6 @@ const Camera = () => {
                 transform: `translate(-50%, -50%) scaleX(-1) scale(${supportsHardwareZoom ? 1 : zoom})`,
               }}
             />
-
             <video
               ref={previewRef}
               playsInline
@@ -868,6 +862,7 @@ const Camera = () => {
                 </label>
               </div>
             </div>
+
             <button
               onClick={saveForever}
               disabled={isSaving || !consentAccepted}
@@ -875,6 +870,7 @@ const Camera = () => {
             >
               {t('camera.save')}
             </button>
+
             <button
               onClick={resetRecording}
               disabled={isSaving}
@@ -882,12 +878,14 @@ const Camera = () => {
             >
               {t('camera.retake')}
             </button>
+
             <button
               onClick={downloadVideo}
               className="w-full px-8 py-3 border border-white/20 text-white/40 text-xs uppercase tracking-widest hover:bg-white/5 transition-colors"
             >
               {t('camera.download')}
             </button>
+
             <div className="mt-4 pt-4 border-t border-white/10">
               <p className="text-yellow-500/60 text-xs mb-2">{t('support.trigger')}</p>
               <p className="text-white/30 text-xs">{t('support.hotlines')}</p>
