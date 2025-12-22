@@ -550,7 +550,7 @@ const Camera = () => {
   };
 
 
-  // Identity confirmation screen
+ // Identity confirmation screen
   if (state === 'identity') {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
@@ -561,27 +561,34 @@ const Camera = () => {
             </div>
           </div>
           
-          {/* --- НАЧАЛО ДОБАВЛЕННОГО БЛОКА С ИНСТРУКЦИЕЙ --- */}
           <div className="mb-8 bg-white/5 p-6 rounded-lg border border-white/10 text-left">
-            <h3 className="text-white font-bold text-xs uppercase tracking-widest mb-4">
-              {t('camera.instructionTitle')}
+            <h3 className="text-white font-bold text-sm uppercase tracking-widest mb-4">
+              {language === 'ru' ? 'Как записывать видео:' : 'How to record video:'}
             </h3>
-            <ul className="space-y-3">
-              <li className="flex items-center gap-3">
-                <span className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)] flex-shrink-0" />
-                <span className="text-white/60 text-xs">{t('camera.instructionRed')}</span>
+            <ul className="space-y-3 text-white/70 text-xs leading-relaxed">
+              <li>• {language === 'ru' ? 'Сядьте перед камерой, только ваши глаза должны быть в рамке.' : 'Sit in front of the camera, only your eyes should be in the frame.'}</li>
+              <li>• {language === 'ru' ? 'Следите за надписью снизу:' : 'Follow the status text below:'}
+                <ul className="ml-4 mt-2 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-red-600 rounded-full" /> 
+                    {language === 'ru' ? 'Красный – лицо/глаза не в кадре.' : 'Red – face/eyes not in frame.'}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-yellow-500 rounded-full" /> 
+                    {language === 'ru' ? 'Жёлтый – глаза в кадре, взгляд не прямо.' : 'Yellow – eyes in frame, not looking straight.'}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full" /> 
+                    {language === 'ru' ? 'Зелёный – можно записывать.' : 'Green – ready to record.'}
+                  </li>
+                </ul>
               </li>
-              <li className="flex items-center gap-3">
-                <span className="w-2 h-2 bg-yellow-500 rounded-full shadow-[0_0_10px_rgba(234,179,8,0.5)] flex-shrink-0" />
-                <span className="text-white/60 text-xs">{t('camera.instructionYellow')}</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)] flex-shrink-0" />
-                <span className="text-white/60 text-xs">{t('camera.instructionGreen')}</span>
-              </li>
+              <li>• {language === 'ru' ? 'Когда индикатор зелёный, запись начнётся автоматически (5 секунд).' : 'When the indicator is green, recording starts automatically (5 seconds).'}</li>
+              <li>• {language === 'ru' ? 'Держите глаза в рамке до конца записи.' : 'Keep your eyes in the frame until the end.'}</li>
+              <li>• {language === 'ru' ? 'После записи можно предпросмотреть, сохранить или повторить.' : 'After recording, you can preview, save, or retake.'}</li>
+              <li>• {language === 'ru' ? 'Для сохранения нужно дать согласие.' : 'Consent is required to save.'}</li>
             </ul>
           </div>
-          {/* --- КОНЕЦ ДОБАВЛЕННОГО БЛОКА --- */}
 
           <p className="text-white/70 text-sm leading-relaxed mb-8">
             {t('camera.identity')}
@@ -610,31 +617,6 @@ const Camera = () => {
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
         <ArrowLeft size={24} />
       </Link>
-
-      {/* Instructions above frame */}
-      {state !== 'preview' && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 text-left px-4 max-w-lg">
-          <p className="text-white/80 text-xs font-bold mb-2">{t('camera.instructionTitle')}</p>
-          <ul className="text-white/60 text-xs space-y-1">
-            <li className="flex items-center gap-2">
-              <span className="w-3 h-3 border border-white/40 rounded-sm flex-shrink-0"></span>
-              {t('camera.instructionWhite')}
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-red-600/60 rounded-sm flex-shrink-0"></span>
-              {t('camera.instructionRed')}
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-yellow-500/60 rounded-sm flex-shrink-0"></span>
-              {t('camera.instructionYellow')}
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-green-500/60 rounded-sm flex-shrink-0"></span>
-              {t('camera.instructionGreen')}
-            </li>
-          </ul>
-        </div>
-      )}
 
       {/* Recording indicator */}
       {state === 'recording' && (
