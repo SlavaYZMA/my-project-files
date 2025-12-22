@@ -377,7 +377,10 @@ const Camera = () => {
 
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext('2d')!;
-      const dpr = window.devicePixelRatio || 1;
+
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      const dpr = isAndroid ? 1 : (window.devicePixelRatio || 1)
+    
       canvas.width = CONFIG.FRAME_WIDTH * dpr;
       canvas.height = CONFIG.FRAME_HEIGHT * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
