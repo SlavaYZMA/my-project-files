@@ -7,8 +7,7 @@ import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ConsentModal from '@/components/modals/ConsentModal';
 
-// Добавлен стейт 'intro'
-type RecordingState = 'identity' | 'intro' | 'idle' | 'recording' | 'preview';
+type RecordingState = 'identity' | 'idle' | 'recording' | 'preview';
 type BackgroundState = 'red' | 'orange' | 'green';
 
 const CONFIG = {
@@ -190,7 +189,7 @@ const Camera = () => {
   // Process FaceMesh results
   const onFaceMeshResults = useCallback((results: Results) => {
     const currentState = stateRef.current;
-    if (currentState === 'identity' || currentState === 'intro' || currentState === 'preview') return;
+    if (currentState === 'identity' || currentState === 'preview') return;
 
     const now = Date.now();
 
@@ -275,8 +274,7 @@ const Camera = () => {
 
   // Initialize camera
   useEffect(() => {
-    // Не запускаем камеру в Identity или Intro
-    if (state === 'identity' || state === 'intro') return;
+    if (state === 'identity') return;
 
     const initCamera = async () => {
       try {
@@ -343,7 +341,7 @@ const Camera = () => {
       }
       if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
     };
-  }, [state]); // Зависимость от state, чтобы запускаться при переходе в idle
+  }, [state === 'identity']);
 
   useEffect(() => {
     if (supportsHardwareZoom && streamRef.current) {
@@ -476,9 +474,11 @@ const Camera = () => {
   setIsSaving(true);
 
   try {
+    // 1. Генерируем уникальное имя файла
     const fileId = crypto.randomUUID();
     const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.webm`;
 
+    // 2. Прямая загрузка в Storage
     const { error: uploadError } = await supabase.storage
       .from('eyes')
       .upload(fileName, recordedBlob, {
@@ -488,14 +488,17 @@ const Camera = () => {
 
     if (uploadError) throw uploadError;
 
+    // 3. Добавляем запись в таблицу eyes (чтобы Canvas увидел)
     const { error: eyesError } = await supabase
       .from('eyes')
       .insert({ cid: fileName });
 
     if (eyesError) {
       console.warn('Не удалось добавить в таблицу eyes, но видео загружено:', eyesError);
+      // Не прерываем — главное, что видео в storage
     }
 
+    // 4. Генерируем уникальный одноразовый токен для удаления
     const deleteToken = crypto.randomUUID();
 
     const { error: tokenError } = await supabase
@@ -507,12 +510,18 @@ const Camera = () => {
 
     if (tokenError) {
       console.warn('Не удалось создать токен удаления:', tokenError);
+      // Продолжаем — пользователь всё равно увидит видео
     }
 
-    const siteUrl = window.location.origin;
+    // 5. Формируем ссылку для удаления
+    const siteUrl = window.location.origin; // например https://vechnoe.netlify.app
     const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
 
+    // 6. Показываем пользователю ссылку
     setDeleteUrl(deleteUrl);
+
+    // Опционально: сброс формы или переход на canvas
+    // resetRecording(); // если хочешь сбросить камеру сразу
 
   } catch (err: any) {
     console.error('Save error:', err);
@@ -537,15 +546,7 @@ const Camera = () => {
   };
 
   const confirmIdentity = () => {
-    setState('intro'); // Переход к интро вместо idle
-  };
-
-  const startShooting = () => {
-    setState('idle'); // Переход к съемке
-  };
-
-  const backFromIntro = () => {
-    setState('identity'); // Возврат к identity
+    setState('idle');
   };
 
 
@@ -582,66 +583,34 @@ const Camera = () => {
     );
   }
 
-  // Intro / Instructions screen
-  if (state === 'intro') {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
-        <div className="max-w-lg w-full">
-            <div className="mb-10 text-center">
-                <p className="text-white text-lg font-bold mb-6">{t('camera.instructionTitle')}</p>
-            </div>
-            
-            <ul className="space-y-6 mb-12">
-                <li className="flex items-start gap-4">
-                    <span className="w-4 h-4 mt-1 border border-white/40 rounded-sm flex-shrink-0"></span>
-                    <span className="text-white/80 text-sm">{t('camera.instructionWhite')}</span>
-                </li>
-                <li className="flex items-start gap-4">
-                    <span className="w-4 h-4 mt-1 bg-red-600/60 rounded-sm flex-shrink-0"></span>
-                    <span className="text-white/80 text-sm">{t('camera.instructionRed')}</span>
-                </li>
-                <li className="flex items-start gap-4">
-                    <span className="w-4 h-4 mt-1 bg-yellow-500/60 rounded-sm flex-shrink-0"></span>
-                    <span className="text-white/80 text-sm">{t('camera.instructionYellow')}</span>
-                </li>
-                <li className="flex items-start gap-4">
-                    <span className="w-4 h-4 mt-1 bg-green-500/60 rounded-sm flex-shrink-0"></span>
-                    <span className="text-white/80 text-sm">{t('camera.instructionGreen')}</span>
-                </li>
-            </ul>
-
-            <div className="flex flex-col gap-4 items-center">
-                <button
-                    onClick={startShooting}
-                    className="w-full px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
-                >
-                    {language === 'ru' ? 'Перейти к съёмке' : 'Start Shooting'}
-                </button>
-                
-                <button 
-                    onClick={backFromIntro}
-                    className="text-white/30 text-xs hover:text-white/60 transition-colors uppercase tracking-widest"
-                >
-                    {language === 'ru' ? 'Назад' : 'Back'}
-                </button>
-            </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center relative font-mono">
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
         <ArrowLeft size={24} />
       </Link>
 
-      {/* Mini instructions above frame (optional, keep if you want reminder) */}
+      {/* Instructions above frame */}
       {state !== 'preview' && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 text-left px-4 max-w-lg w-full">
-             <div className="flex justify-between items-center opacity-50 text-[10px] uppercase tracking-wider text-white">
-                <span>{t('camera.instructionTitle')}</span>
-             </div>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 text-left px-4 max-w-lg">
+          <p className="text-white/80 text-xs font-bold mb-2">{t('camera.instructionTitle')}</p>
+          <ul className="text-white/60 text-xs space-y-1">
+            <li className="flex items-center gap-2">
+              <span className="w-3 h-3 border border-white/40 rounded-sm flex-shrink-0"></span>
+              {t('camera.instructionWhite')}
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-3 h-3 bg-red-600/60 rounded-sm flex-shrink-0"></span>
+              {t('camera.instructionRed')}
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-3 h-3 bg-yellow-500/60 rounded-sm flex-shrink-0"></span>
+              {t('camera.instructionYellow')}
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-3 h-3 bg-green-500/60 rounded-sm flex-shrink-0"></span>
+              {t('camera.instructionGreen')}
+            </li>
+          </ul>
         </div>
       )}
 
