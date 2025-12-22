@@ -829,54 +829,81 @@ const Camera = () => {
         )}
 
         {state === 'preview' && !deleteUrl && (
-          <div className="flex flex-col gap-4 w-full max-w-xs">
-            <div className="border border-white/10 p-4 mb-2">
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="consent-save"
-                  checked={consentAccepted}
-                  onChange={(e) => setConsentAccepted(e.target.checked)}
-                  className="mt-1 w-4 h-4 accent-white"
-                />
-                <label htmlFor="consent-save" className="text-white/60 text-xs cursor-pointer">
-                  {t('camera.consent')}
-                  <button
-                    onClick={() => setShowConsent(true)}
-                    className="block text-white/40 underline hover:text-white/60 transition-colors mt-1"
-                  >
-                    {t('camera.viewConsent')}
-                  </button>
-                </label>
-              </div>
-            </div>
-            <button
-              onClick={saveForever}
-              disabled={isSaving || !consentAccepted}
-              className="w-full px-8 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {t('camera.save')}
-            </button>
-            <button
-              onClick={resetRecording}
-              disabled={isSaving}
-              className="w-full px-8 py-3 border border-white/30 text-white/60 text-sm uppercase tracking-widest hover:bg-white/10 transition-colors disabled:opacity-50"
-            >
-              {t('camera.retake')}
-            </button>
-            <button
-              onClick={downloadVideo}
-              className="w-full px-8 py-3 border border-white/20 text-white/40 text-xs uppercase tracking-widest hover:bg-white/5 transition-colors"
-            >
-              {t('camera.download')}
-            </button>
-            <div className="mt-4 pt-4 border-t border-white/10">
-              <p className="text-yellow-500/60 text-xs mb-2">{t('support.trigger')}</p>
-              <p className="text-white/30 text-xs">{t('support.hotlines')}</p>
-              <p className="text-white/40 text-xs">🇷🇺 8-800-2000-122</p>
-            </div>
-          </div>
-        )}
+  <div className="flex flex-col gap-4 w-full max-w-xs">
+    
+    {/* --- НОВЫЙ БЛОК ПРЕДПРОСМОТРА --- */}
+    <div 
+      className="w-full bg-black overflow-hidden border border-white/20"
+      style={{ 
+        aspectRatio: '512 / 128', // Соотношение 4:1 как в конфиге
+      }}
+    >
+      <video
+        ref={previewRef}
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain', // Показывает всё видео целиком без обрезки
+        }}
+      />
+    </div>
+    {/* ------------------------------- */}
+
+    <div className="border border-white/10 p-4 mb-2">
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          id="consent-save"
+          checked={consentAccepted}
+          onChange={(e) => setConsentAccepted(e.target.checked)}
+          className="mt-1 w-4 h-4 accent-white"
+        />
+        <label htmlFor="consent-save" className="text-white/60 text-xs cursor-pointer">
+          {t('camera.consent')}
+          <button
+            onClick={() => setShowConsent(true)}
+            className="block text-white/40 underline hover:text-white/60 transition-colors mt-1"
+          >
+            {t('camera.viewConsent')}
+          </button>
+        </label>
+      </div>
+    </div>
+
+    <button
+      onClick={saveForever}
+      disabled={isSaving || !consentAccepted}
+      className="w-full px-8 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {t('camera.save')}
+    </button>
+
+    <button
+      onClick={resetRecording}
+      disabled={isSaving}
+      className="w-full px-8 py-3 border border-white/30 text-white/60 text-sm uppercase tracking-widest hover:bg-white/10 transition-colors disabled:opacity-50"
+    >
+      {t('camera.retake')}
+    </button>
+
+    <button
+      onClick={downloadVideo}
+      className="w-full px-8 py-3 border border-white/20 text-white/40 text-xs uppercase tracking-widest hover:bg-white/5 transition-colors"
+    >
+      {t('camera.download')}
+    </button>
+
+    <div className="mt-4 pt-4 border-t border-white/10">
+      <p className="text-yellow-500/60 text-xs mb-2">{t('support.trigger')}</p>
+      <p className="text-white/30 text-xs">{t('support.hotlines')}</p>
+      <p className="text-white/40 text-xs">🇷🇺 8-800-2000-122</p>
+    </div>
+  </div>
+)}
 
         {deleteUrl && (
           <div className="text-center max-w-sm">
