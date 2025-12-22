@@ -66,8 +66,6 @@ const Camera = () => {
   const recordIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const stateRef = useRef<RecordingState>('identity');
   const bgStateRef = useRef<BackgroundState>('red');
-
-  // Блокировка повторного запуска
   const isStartingRef = useRef(false);
 
   const [state, setState] = useState<RecordingState>('identity');
@@ -133,6 +131,7 @@ const Camera = () => {
 
     const leftValid = leftGazeX <= CONFIG.GAZE_THRESHOLD_X && leftGazeY <= CONFIG.GAZE_THRESHOLD_Y;
     const rightValid = rightGazeX <= CONFIG.GAZE_THRESHOLD_X && rightGazeY <= CONFIG.GAZE_THRESHOLD_Y;
+
     return leftValid && rightValid;
   }, []);
 
@@ -140,6 +139,7 @@ const Camera = () => {
     if (!landmarks || landmarks.length < 478) {
       return { leftEye: null, rightEye: null, bothInFrame: false, hasValidSize: false };
     }
+
     const getEyeBounds = (indices: number[]) => {
       const points = indices.map(i => landmarks[i]);
       const xs = points.map(p => p.x);
@@ -155,8 +155,10 @@ const Camera = () => {
         maxY: Math.max(...ys),
       };
     };
+
     const leftBounds = getEyeBounds(LEFT_EYE_INDICES);
     const rightBounds = getEyeBounds(RIGHT_EYE_INDICES);
+
     const margin = CONFIG.FRAME_MARGIN;
     const leftInFrame =
       leftBounds.minX > margin && leftBounds.maxX < (1 - margin) &&
@@ -164,8 +166,10 @@ const Camera = () => {
     const rightInFrame =
       rightBounds.minX > margin && rightBounds.maxX < (1 - margin) &&
       rightBounds.minY > margin && rightBounds.maxY < (1 - margin);
+
     const avgEyeWidth = (leftBounds.width + rightBounds.width) / 2;
     const hasValidSize = avgEyeWidth >= CONFIG.MIN_EYE_WIDTH && avgEyeWidth <= CONFIG.MAX_EYE_WIDTH;
+
     return {
       leftEye: { x: leftBounds.centerX, y: leftBounds.centerY, width: leftBounds.width, height: leftBounds.height },
       rightEye: { x: rightBounds.centerX, y: rightBounds.centerY, width: rightBounds.width, height: rightBounds.height },
@@ -186,6 +190,7 @@ const Camera = () => {
     if (currentState === 'identity' || currentState === 'preview') return;
 
     const now = Date.now();
+
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       if (blinkStartRef.current === null) {
         blinkStartRef.current = now;
@@ -203,6 +208,7 @@ const Camera = () => {
 
     blinkStartRef.current = null;
     lastDetectionRef.current = now;
+
     const landmarks = results.multiFaceLandmarks[0];
     const eyeData = calculateEyeData(landmarks);
     const gazeValid = calculateGaze(landmarks);
@@ -210,8 +216,8 @@ const Camera = () => {
     const eyesDetected = eyeData.leftEye !== null && eyeData.rightEye !== null;
     const eyesInFrame = eyeData.bothInFrame;
     const validSize = eyeData.hasValidSize;
-    const detectionValid = eyesDetected && eyesInFrame && validSize;
 
+    const detectionValid = eyesDetected && eyesInFrame && validSize;
     const detectionStable = updateWindow(detectionWindowRef.current, detectionValid);
     const gazeStable = updateWindow(gazeWindowRef.current, gazeValid);
 
@@ -223,6 +229,7 @@ const Camera = () => {
     } else {
       newBgState = 'green';
     }
+
     setBgState(newBgState);
 
     if (currentState === 'idle' && newBgState === 'green') {
@@ -258,11 +265,12 @@ const Camera = () => {
       console.log('Recording start blocked: already active');
       return;
     }
-    isStartingRef.current = true;
 
+    isStartingRef.current = true;
     setState('recording');
     setIsRecording(false);
-    let prepCount = 3; // Для теста 3, можно вернуть 5
+
+    let prepCount = 3; // Для теста 3, в продакшене можно 5
     setPrepTimer(prepCount);
 
     const prepInterval = setInterval(() => {
@@ -279,17 +287,14 @@ const Camera = () => {
     const proceedToActualRecording = () => {
       isStartingRef.current = false;
       addLog('=== START ACTUAL RECORDING ===');
-
       setRecordTime(CONFIG.RECORD_SECONDS);
       chunksRef.current = [];
       setIsRecording(true);
 
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
-
       canvas.width = CONFIG.FRAME_WIDTH;
       canvas.height = CONFIG.FRAME_HEIGHT;
-
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -308,27 +313,22 @@ const Camera = () => {
 
         const videoW = video.videoWidth;
         const videoH = video.videoHeight;
-
         const inputAspect = videoW / videoH;
         const outputAspect = CONFIG.FRAME_WIDTH / CONFIG.FRAME_HEIGHT;
 
         let sw, sh, sx, sy;
-
         if (inputAspect > outputAspect) {
-          // Видео шире → обрезаем по ширине
           sh = videoH;
           sw = videoH * outputAspect;
           sx = (videoW - sw) / 2;
           sy = 0;
         } else {
-          // Видео выше → обрезаем по высоте (портретный режим)
           sw = videoW;
           sh = videoW / outputAspect;
           sx = 0;
           sy = (videoH - sh) / 2;
         }
 
-        // Применяем зум
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
         if (effectiveZoom > 1) {
           const zoomW = sw / effectiveZoom;
@@ -341,9 +341,18 @@ const Camera = () => {
 
         try {
           ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-        } catch (e) {}
 
-        ctx.restore();
+          // === ТЕСТОВАЯ КРАСНАЯ РАМКА ПО КРАЯМ КАДРА ===
+          ctx.restore(); // Выходим из зеркального отражения
+          ctx.strokeStyle = '#FF0000';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(2, 2, CONFIG.FRAME_WIDTH - 4, CONFIG.FRAME_HEIGHT - 4);
+
+          // Возвращаем трансформацию для следующего кадра
+          ctx.save();
+          ctx.translate(CONFIG.FRAME_WIDTH, 0);
+          ctx.scale(-1, 1);
+        } catch (e) {}
 
         if (isActive) requestAnimationFrame(drawFrame);
       };
@@ -394,7 +403,6 @@ const Camera = () => {
           isActive = false;
           const blob = new Blob(chunksRef.current, { type: mimeType });
           addLog(`Stopped. Size: ${blob.size}, Type: ${mimeType}`);
-
           setRecordedBlob(blob);
           setState('preview');
 
@@ -402,7 +410,6 @@ const Camera = () => {
             if (previewRef.current.src) URL.revokeObjectURL(previewRef.current.src);
             const url = URL.createObjectURL(blob);
             previewRef.current.src = url;
-
             const playPromise = previewRef.current.play();
             if (playPromise !== undefined) {
               playPromise.catch(error => {
@@ -415,21 +422,17 @@ const Camera = () => {
         recorder.start(100);
         addLog('MediaRecorder started');
 
-        // === ИСПРАВЛЕННЫЙ ТАЙМЕР ===
         let secondsLeft = CONFIG.RECORD_SECONDS;
         const startTime = Date.now();
-
         const timerId = setInterval(() => {
           const elapsed = Math.floor((Date.now() - startTime) / 1000);
           const newSecondsLeft = CONFIG.RECORD_SECONDS - elapsed;
-
           if (newSecondsLeft !== secondsLeft) {
             secondsLeft = newSecondsLeft;
             if (secondsLeft >= 0) {
               setRecordTime(secondsLeft);
             }
           }
-
           if (secondsLeft <= 0) {
             clearInterval(timerId);
             if (recorderRef.current?.state === 'recording') {
@@ -439,7 +442,6 @@ const Camera = () => {
         }, 100);
 
         recordIntervalRef.current = timerId;
-
       } catch (e: any) {
         addLog(`Recorder init failed: ${e.message}`);
         isStartingRef.current = false;
@@ -448,7 +450,6 @@ const Camera = () => {
     };
   }, [zoom, supportsHardwareZoom, addLog]);
 
-  // Инициализация камеры и остальные функции остаются без изменений
   useEffect(() => {
     if (state === 'identity') return;
 
@@ -458,6 +459,7 @@ const Camera = () => {
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
           audio: false
         });
+
         streamRef.current = stream;
         const track = stream.getVideoTracks()[0];
         const capabilities = track.getCapabilities?.() as Record<string, unknown>;
@@ -473,15 +475,18 @@ const Camera = () => {
         const faceMesh = new FaceMesh({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
+
         faceMesh.setOptions({
           maxNumFaces: 1,
           refineLandmarks: true,
           minDetectionConfidence: 0.5,
           minTrackingConfidence: 0.5,
         });
+
         faceMesh.onResults((results) => {
           onFaceMeshResultsRef.current(results);
         });
+
         faceMeshRef.current = faceMesh;
 
         if (videoRef.current) {
@@ -552,6 +557,7 @@ const Camera = () => {
           contentType: 'video/webm',
           upsert: false,
         });
+
       if (uploadError) throw uploadError;
 
       await supabase.from('eyes').insert({ cid: fileName });
@@ -727,13 +733,24 @@ const Camera = () => {
                 transform: `translate(-50%, -50%) scaleX(-1) scale(${supportsHardwareZoom ? 1 : zoom})`,
               }}
             />
+
             <video
               ref={previewRef}
               playsInline
               loop
               muted
-              className={`w-full h-full object-cover ${state !== 'preview' ? 'hidden' : ''}`}
+              autoPlay
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget;
+                addLog(`[Preview Vid] Video Resolution: ${v.videoWidth}x${v.videoHeight}`);
+                addLog(`[Preview Element] Display Size: ${v.clientWidth}x${v.clientHeight}`);
+              }}
+              className={`w-full h-full object-contain ${state !== 'preview' ? 'hidden' : ''}`}
+              style={{
+                border: '2px solid yellow', // отладочная жёлтая рамка
+              }}
             />
+
             {state !== 'preview' && (
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
@@ -765,6 +782,7 @@ const Camera = () => {
               </div>
             )}
           </div>
+
           <div className="mt-3 text-center">
             <p className={`text-xs transition-colors duration-300 ${
               state === 'recording' && isRecording
