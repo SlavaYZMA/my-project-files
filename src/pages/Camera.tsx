@@ -67,6 +67,7 @@ const Camera = () => {
   const stateRef = useRef<RecordingState>('identity');
   const bgStateRef = useRef<BackgroundState>('red');
 
+  // Блокировка повторного запуска
   const isStartingRef = useRef(false);
 
   const [state, setState] = useState<RecordingState>('identity');
@@ -83,6 +84,7 @@ const Camera = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isIdentified, setIsIdentified] = useState(false);
 
+  // Debug логи
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const addLog = useCallback((message: string) => {
     const timestamp = new Date().toISOString().slice(11, 23);
@@ -260,7 +262,7 @@ const Camera = () => {
 
     setState('recording');
     setIsRecording(false);
-    let prepCount = 3;
+    let prepCount = 3; // Для теста 3, можно вернуть 5
     setPrepTimer(prepCount);
 
     const prepInterval = setInterval(() => {
@@ -313,17 +315,20 @@ const Camera = () => {
         let sw, sh, sx, sy;
 
         if (inputAspect > outputAspect) {
+          // Видео шире → обрезаем по ширине
           sh = videoH;
           sw = videoH * outputAspect;
           sx = (videoW - sw) / 2;
           sy = 0;
         } else {
+          // Видео выше → обрезаем по высоте (портретный режим)
           sw = videoW;
           sh = videoW / outputAspect;
           sx = 0;
           sy = (videoH - sh) / 2;
         }
 
+        // Применяем зум
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
         if (effectiveZoom > 1) {
           const zoomW = sw / effectiveZoom;
@@ -388,34 +393,29 @@ const Camera = () => {
         recorder.onstop = () => {
           isActive = false;
           const blob = new Blob(chunksRef.current, { type: mimeType });
-          addLog(`[Final] Blob ready. Size: ${blob.size} bytes, Type: ${mimeType}`);
-          
+          addLog(`Stopped. Size: ${blob.size}, Type: ${mimeType}`);
+
           setRecordedBlob(blob);
           setState('preview');
-          
+
           if (previewRef.current) {
             if (previewRef.current.src) URL.revokeObjectURL(previewRef.current.src);
-
             const url = URL.createObjectURL(blob);
             previewRef.current.src = url;
 
-            previewRef.current.onloadedmetadata = () => {
-              if (!previewRef.current) return;
-              const v = previewRef.current;
-              addLog(`[Preview Stats] Video Resolution: ${v.videoWidth}x${v.videoHeight}`);
-              addLog(`[Preview Stats] Element Size: ${v.clientWidth}x${v.clientHeight}`);
-              
-              const computedStyle = window.getComputedStyle(v);
-              addLog(`[Preview Stats] CSS Object-Fit: ${computedStyle.objectFit}`);
-            };
-
-            previewRef.current.play().catch(e => addLog("Preview Play Error: " + e.message));
+            const playPromise = previewRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(error => {
+                addLog('Preview Play Error: ' + error.message);
+              });
+            }
           }
         };
 
         recorder.start(100);
         addLog('MediaRecorder started');
 
+        // === ИСПРАВЛЕННЫЙ ТАЙМЕР ===
         let secondsLeft = CONFIG.RECORD_SECONDS;
         const startTime = Date.now();
 
@@ -448,6 +448,7 @@ const Camera = () => {
     };
   }, [zoom, supportsHardwareZoom, addLog]);
 
+  // Инициализация камеры и остальные функции остаются без изменений
   useEffect(() => {
     if (state === 'identity') return;
 
@@ -518,6 +519,7 @@ const Camera = () => {
   useEffect(() => {
     if (supportsHardwareZoom && streamRef.current) {
       const track = streamRef.current.getVideoTracks()[0];
+      // @ts-expect-error
       track.applyConstraints({ advanced: [{ zoom }] }).catch(() => {});
     }
   }, [zoom, supportsHardwareZoom]);
@@ -725,7 +727,43 @@ const Camera = () => {
                 transform: `translate(-50%, -50%) scaleX(-1) scale(${supportsHardwareZoom ? 1 : zoom})`,
               }}
             />
-            {/* Превью-видео вынесено ниже для отладки */}
+            <video
+              ref={previewRef}
+              playsInline
+              loop
+              muted
+              className={`w-full h-full object-cover ${state !== 'preview' ? 'hidden' : ''}`}
+            />
+            {state !== 'preview' && (
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
+                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10" />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 left-[15%] w-[30%] h-[60%] border border-dashed rounded-full transition-colors duration-300"
+                  style={{
+                    borderColor: bgState === 'green'
+                      ? 'rgba(34, 197, 94, 0.4)'
+                      : bgState === 'orange'
+                        ? 'rgba(249, 115, 22, 0.3)'
+                        : 'rgba(239, 68, 68, 0.3)'
+                  }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 right-[15%] w-[30%] h-[60%] border border-dashed rounded-full transition-colors duration-300"
+                  style={{
+                    borderColor: bgState === 'green'
+                      ? 'rgba(34, 197, 94, 0.4)'
+                      : bgState === 'orange'
+                        ? 'rgba(249, 115, 22, 0.3)'
+                        : 'rgba(239, 68, 68, 0.3)'
+                  }}
+                />
+                <div className="absolute top-2 left-2 w-3 h-3 border-l border-t border-white/30" />
+                <div className="absolute top-2 right-2 w-3 h-3 border-r border-t border-white/30" />
+                <div className="absolute bottom-2 left-2 w-3 h-3 border-l border-b border-white/30" />
+                <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-white/30" />
+              </div>
+            )}
           </div>
           <div className="mt-3 text-center">
             <p className={`text-xs transition-colors duration-300 ${
@@ -787,35 +825,6 @@ const Camera = () => {
             >
               <Plus size={16} />
             </button>
-          </div>
-        )}
-
-        {/* ОТЛАДОЧНЫЙ КОНТЕЙНЕР ПРЕВЬЮ */}
-        {state === 'preview' && (
-          <div style={{ 
-            position: 'relative', 
-            width: '100%', 
-            maxWidth: '512px', 
-            aspectRatio: '4/1',
-            background: '#1a1a1a',
-            outline: '2px dashed yellow',
-            margin: '20px 0',
-            borderRadius: '12px',
-            overflow: 'hidden'
-          }}>
-            <video
-              ref={previewRef}
-              loop
-              muted
-              playsInline
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'block',
-                objectFit: 'contain',
-                backgroundColor: 'rgba(255, 0, 0, 0.2)'
-              }}
-            />
           </div>
         )}
 
