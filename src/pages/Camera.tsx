@@ -19,21 +19,16 @@ const CONFIG = {
   ZOOM_MIN: 1,
   ZOOM_MAX: 3,
   ZOOM_STEP: 0.1,
-  // Detection thresholds
   MIN_EYE_WIDTH: 0.08,
   MAX_EYE_WIDTH: 0.35,
   FRAME_MARGIN: 0.05,
-  // Gaze thresholds
   GAZE_THRESHOLD_X: 0.15,
   GAZE_THRESHOLD_Y: 0.15,
-  // Sliding window for stability
   STABILITY_WINDOW: 5,
   STABILITY_MIN_VALID: 4,
-  // Blink tolerance
   BLINK_TOLERANCE_MS: 600,
 };
 
-// FaceMesh landmark indices
 const LEFT_EYE_INDICES = [33, 133, 160, 159, 158, 157, 173, 246, 161, 163];
 const RIGHT_EYE_INDICES = [362, 263, 387, 386, 385, 384, 398, 466, 388, 390];
 const LEFT_IRIS_CENTER = 468;
@@ -66,13 +61,11 @@ const Camera = () => {
   const faceMeshRef = useRef<FaceMesh | null>(null);
   const mediaPipeCameraRef = useRef<MediaPipeCamera | null>(null);
 
-  // Refs for stability windows and timers
   const detectionWindowRef = useRef<boolean[]>([]);
   const gazeWindowRef = useRef<boolean[]>([]);
   const blinkStartRef = useRef<number | null>(null);
   const lastDetectionRef = useRef<number>(Date.now());
 
-  // Countdown state
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -95,12 +88,10 @@ const Camera = () => {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
-
   useEffect(() => {
     bgStateRef.current = bgState;
   }, [bgState]);
 
-  // Calculate gaze direction
   const calculateGaze = useCallback((landmarks: Results['multiFaceLandmarks'][0]): boolean => {
     if (!landmarks || landmarks.length < 478) return false;
 
@@ -138,7 +129,6 @@ const Camera = () => {
     return leftValid && rightValid;
   }, []);
 
-  // Calculate eye data
   const calculateEyeData = useCallback((landmarks: Results['multiFaceLandmarks'][0]): EyeData => {
     if (!landmarks || landmarks.length < 478) {
       return { leftEye: null, rightEye: null, bothInFrame: false, hasValidSize: false };
@@ -182,7 +172,6 @@ const Camera = () => {
     };
   }, []);
 
-  // Update sliding window
   const updateWindow = (window: boolean[], value: boolean): boolean => {
     window.push(value);
     if (window.length > CONFIG.STABILITY_WINDOW) window.shift();
@@ -190,7 +179,6 @@ const Camera = () => {
     return validCount >= CONFIG.STABILITY_MIN_VALID;
   };
 
-  // Start countdown
   const startCountdown = () => {
     setCountdown(3);
     let count = 3;
@@ -207,7 +195,6 @@ const Camera = () => {
     countdownTimeoutRef.current = setTimeout(tick, 1000);
   };
 
-  // Reset countdown
   const resetCountdown = () => {
     if (countdownTimeoutRef.current) {
       clearTimeout(countdownTimeoutRef.current);
@@ -216,14 +203,12 @@ const Camera = () => {
     setCountdown(null);
   };
 
-  // Process FaceMesh results
   const onFaceMeshResults = useCallback((results: Results) => {
     const currentState = stateRef.current;
     if (currentState === 'identity' || currentState === 'intro' || currentState === 'preview') return;
 
     const now = Date.now();
 
-    // No face detected
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       if (blinkStartRef.current === null) {
         blinkStartRef.current = now;
@@ -240,7 +225,6 @@ const Camera = () => {
       return;
     }
 
-    // Face detected
     blinkStartRef.current = null;
     lastDetectionRef.current = now;
 
@@ -256,14 +240,12 @@ const Camera = () => {
     const detectionStable = updateWindow(detectionWindowRef.current, detectionValid);
     const gazeStable = updateWindow(gazeWindowRef.current, gazeValid);
 
-    // Determine background state
     let newBgState: BackgroundState = 'red';
     if (detectionStable) {
       newBgState = gazeStable ? 'green' : 'orange';
     }
     setBgState(newBgState);
 
-    // Logic for idle state: wait for green gaze → start countdown
     if (currentState === 'idle') {
       if (newBgState === 'green') {
         if (countdown === null) {
@@ -274,10 +256,8 @@ const Camera = () => {
       }
     }
 
-    // During recording: only check detection stability
     if (currentState === 'recording') {
       if (!detectionStable) {
-        // Eyes left frame → stop recording
         if (recorderRef.current) {
           recorderRef.current.stop();
           recorderRef.current = null;
@@ -302,10 +282,8 @@ const Camera = () => {
     onFaceMeshResultsRef.current = onFaceMeshResults;
   }, [onFaceMeshResults]);
 
-  // Initialize camera ONLY when entering 'idle'
   useEffect(() => {
     if (state !== 'idle') {
-      // Cleanup if leaving idle
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
@@ -382,7 +360,6 @@ const Camera = () => {
     };
   }, [state]);
 
-  // Apply zoom
   useEffect(() => {
     if (supportsHardwareZoom && streamRef.current) {
       const track = streamRef.current.getVideoTracks()[0];
@@ -391,7 +368,7 @@ const Camera = () => {
   }, [zoom, supportsHardwareZoom]);
 
   const startRecording = useCallback(() => {
-    if (stateRef.current !== 'idle' && stateRef.current !== 'idle') return;
+    if (stateRef.current !== 'idle') return;
 
     setState('recording');
     setRecordTime(CONFIG.RECORD_SECONDS);
@@ -401,14 +378,20 @@ const Camera = () => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
     const dpr = window.devicePixelRatio || 1;
+
     canvas.width = CONFIG.FRAME_WIDTH * dpr;
     canvas.height = CONFIG.FRAME_HEIGHT * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Важно: задаём видимые размеры canvas
+    canvas.style.width = `${CONFIG.FRAME_WIDTH}px`;
+    canvas.style.height = `${CONFIG.FRAME_HEIGHT}px`;
 
     let isActive = true;
 
     const drawFrame = () => {
       if (!videoRef.current || !isActive) return;
+
       ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
       ctx.save();
       ctx.translate(CONFIG.FRAME_WIDTH, 0);
@@ -417,6 +400,7 @@ const Camera = () => {
       const videoW = videoRef.current.videoWidth || CONFIG.FRAME_WIDTH;
       const videoH = videoRef.current.videoHeight || CONFIG.FRAME_HEIGHT;
       const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+
       const scaledW = videoW / effectiveZoom;
       const scaledH = videoH / effectiveZoom;
       const scale = Math.max(CONFIG.FRAME_WIDTH / scaledW, CONFIG.FRAME_HEIGHT / scaledH);
@@ -548,7 +532,6 @@ const Camera = () => {
   const goToIntro = () => setState('intro');
   const goToIdle = () => setState('idle');
 
-  // Identity screen
   if (state === 'identity') {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
@@ -575,7 +558,6 @@ const Camera = () => {
     );
   }
 
-  // Intro screen
   if (state === 'intro') {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
@@ -601,14 +583,12 @@ const Camera = () => {
     );
   }
 
-  // Main camera interface
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center relative font-mono">
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
         <ArrowLeft size={24} />
       </Link>
 
-      {/* Recording indicator */}
       {state === 'recording' && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-600 animate-pulse' : 'bg-yellow-500'}`} />
@@ -619,7 +599,6 @@ const Camera = () => {
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 w-full max-w-2xl pt-20">
-        {/* Video frame */}
         <div className="relative mb-8">
           <div
             className="relative overflow-hidden rounded-xl"
@@ -633,20 +612,34 @@ const Camera = () => {
                 : 'inset 0 0 0 3px rgba(239, 68, 68, 0.6)',
             }}
           >
-            {/* Background is always black */}
             <div className="absolute inset-0 bg-black" />
 
+            {/* Оригинальное видео — видно только в idle и countdown */}
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className={`absolute top-1/2 left-1/2 min-w-full min-h-full object-cover ${state === 'preview' ? 'hidden' : ''}`}
+              className={`absolute top-1/2 left-1/2 min-w-full min-h-full object-cover ${
+                state === 'recording' || state === 'preview' ? 'hidden' : ''
+              }`}
               style={{
                 transform: `translate(-50%, -50%) scaleX(-1) scale(${supportsHardwareZoom ? 1 : zoom})`,
               }}
             />
 
+            {/* Canvas — показывается во время записи (то, что записывается) */}
+            <canvas
+              ref={canvasRef}
+              className={`absolute top-1/2 left-1/2 ${state === 'recording' ? 'block' : 'hidden'}`}
+              style={{
+                transform: 'translate(-50%, -50%) scaleX(-1)',
+                width: CONFIG.FRAME_WIDTH,
+                height: CONFIG.FRAME_HEIGHT,
+              }}
+            />
+
+            {/* Превью записанного видео */}
             <video
               ref={previewRef}
               playsInline
@@ -655,7 +648,6 @@ const Camera = () => {
               className={`w-full h-full object-cover ${state !== 'preview' ? 'hidden' : ''}`}
             />
 
-            {/* Eye guides and countdown */}
             {state !== 'preview' && (
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
@@ -683,7 +675,6 @@ const Camera = () => {
                 <div className="absolute bottom-2 left-2 w-3 h-3 border-l border-b border-white/30" />
                 <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-white/30" />
 
-                {/* Countdown number */}
                 {countdown !== null && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-9xl font-bold text-white drop-shadow-2xl">
@@ -695,7 +686,6 @@ const Camera = () => {
             )}
           </div>
 
-          {/* Status text below frame */}
           <div className="mt-4 text-center">
             <p className={`text-sm font-medium ${
               state === 'recording' && isRecording ? 'text-green-400'
@@ -715,14 +705,12 @@ const Camera = () => {
           </div>
         </div>
 
-        {/* Timer during recording */}
         {state === 'recording' && (
           <div className={`text-8xl md:text-9xl font-bold mb-8 tabular-nums ${isRecording ? 'text-white' : 'text-white/30'}`}>
             {recordTime}
           </div>
         )}
 
-        {/* Zoom controls */}
         {state === 'idle' && !supportsHardwareZoom && (
           <div className="flex items-center gap-4 mb-6">
             <button onClick={() => adjustZoom(-CONFIG.ZOOM_STEP)} className="w-10 h-10 border border-white/20 rounded flex items-center justify-center hover:bg-white/10">
@@ -735,7 +723,6 @@ const Camera = () => {
           </div>
         )}
 
-        {/* Preview actions */}
         {state === 'preview' && !deleteUrl && (
           <div className="flex flex-col gap-4 w-full max-w-xs">
             <div className="border border-white/10 p-4 mb-2">
@@ -787,7 +774,6 @@ const Camera = () => {
           </div>
         )}
 
-        {/* Delete link after save */}
         {deleteUrl && (
           <div className="text-center max-w-sm">
             <div className="text-green-500 mb-4 text-2xl">✓</div>
@@ -803,7 +789,6 @@ const Camera = () => {
         )}
       </div>
 
-      <canvas ref={canvasRef} className="hidden" />
       <ConsentModal isOpen={showConsent} onClose={() => setShowConsent(false)} />
     </div>
   );
