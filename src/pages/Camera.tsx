@@ -410,11 +410,6 @@ const Camera = () => {
         }
 
         ctx.restore();
-// === Фикс для Android: принудительный flush кадра в stream ===
-        const track = canvasStream.getVideoTracks()[0];
-        if (track && track.requestFrame) {
-          track.requestFrame();
-        }
         if (isActive) requestAnimationFrame(drawFrame);
       };
 
