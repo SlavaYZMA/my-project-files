@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Copy } from 'lucide-react';
 import { FaceMesh, Results } from '@mediapipe/face_mesh';
 import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -92,26 +92,45 @@ const Camera = () => {
     bgStateRef.current = bgState;
   }, [bgState]);
 
-  // === ВРЕМЕННАЯ ФУНКЦИЯ ДЛЯ ВЫВОДА ЛОГОВ НА ЭКРАН (ТОЛЬКО НА ANDROID) ===
+  // === ОТЛАДКА НА ANDROID ===
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
   const logToScreen = useCallback((message: string) => {
-    if (!/Android/i.test(navigator.userAgent)) return;
+    if (!isAndroid) return;
 
     const logElement = document.getElementById('debug-log');
     if (!logElement) return;
 
     const entry = document.createElement('div');
     entry.textContent = `[${new Date().toLocaleTimeString('ru-RU')}] ${message}`;
+    entry.className = 'text-xs leading-relaxed py-0.5';
     logElement.appendChild(entry);
-    logElement.scrollTop = logElement.scrollHeight;
 
-    // Ограничение количества строк
-    while (logElement.children.length > 100) {
-      logElement.removeChild(logElement.firstChild!);
+    // Автоскролл только если пользователь уже внизу
+    const isNearBottom = logElement.scrollHeight - logElement.scrollTop - logElement.clientHeight < 100;
+    if (isNearBottom) {
+      logElement.scrollTop = logElement.scrollHeight;
     }
-  }, []);
+  }, [isAndroid]);
+
+  const copyLogs = () => {
+    const logElement = document.getElementById('debug-log');
+    if (!logElement) return;
+
+    const text = Array.from(logElement.children)
+      .map((child) => child.textContent)
+      .join('\n');
+
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Логи скопированы в буфер обмена!');
+    }).catch(() => {
+      alert('Не удалось скопировать (возможно, браузер блокирует)');
+    });
+  };
 
   const calculateGaze = useCallback((landmarks: Results['multiFaceLandmarks'][0]): boolean => {
     if (!landmarks || landmarks.length < 478) return false;
+
     const leftIris = landmarks[LEFT_IRIS_CENTER];
     const leftInner = landmarks[LEFT_EYE_INNER];
     const leftOuter = landmarks[LEFT_EYE_OUTER];
@@ -149,6 +168,7 @@ const Camera = () => {
     if (!landmarks || landmarks.length < 478) {
       return { leftEye: null, rightEye: null, bothInFrame: false, hasValidSize: false };
     }
+
     const getEyeBounds = (indices: number[]) => {
       const points = indices.map(i => landmarks[i]);
       const xs = points.map(p => p.x);
@@ -164,8 +184,10 @@ const Camera = () => {
         maxY: Math.max(...ys),
       };
     };
+
     const leftBounds = getEyeBounds(LEFT_EYE_INDICES);
     const rightBounds = getEyeBounds(RIGHT_EYE_INDICES);
+
     const margin = CONFIG.FRAME_MARGIN;
     const leftInFrame =
       leftBounds.minX > margin && leftBounds.maxX < (1 - margin) &&
@@ -173,8 +195,10 @@ const Camera = () => {
     const rightInFrame =
       rightBounds.minX > margin && rightBounds.maxX < (1 - margin) &&
       rightBounds.minY > margin && rightBounds.maxY < (1 - margin);
+
     const avgEyeWidth = (leftBounds.width + rightBounds.width) / 2;
     const hasValidSize = avgEyeWidth >= CONFIG.MIN_EYE_WIDTH && avgEyeWidth <= CONFIG.MAX_EYE_WIDTH;
+
     return {
       leftEye: { x: leftBounds.centerX, y: leftBounds.centerY, width: leftBounds.width, height: leftBounds.height },
       rightEye: { x: rightBounds.centerX, y: rightBounds.centerY, width: rightBounds.width, height: rightBounds.height },
@@ -193,7 +217,9 @@ const Camera = () => {
   const onFaceMeshResults = useCallback((results: Results) => {
     const currentState = stateRef.current;
     if (currentState === 'identity' || currentState === 'preview') return;
+
     const now = Date.now();
+
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       if (blinkStartRef.current === null) {
         blinkStartRef.current = now;
@@ -209,14 +235,18 @@ const Camera = () => {
       }
       return;
     }
+
     blinkStartRef.current = null;
     lastDetectionRef.current = now;
+
     const landmarks = results.multiFaceLandmarks[0];
     const eyeData = calculateEyeData(landmarks);
     const gazeValid = calculateGaze(landmarks);
+
     const eyesDetected = eyeData.leftEye !== null && eyeData.rightEye !== null;
     const eyesInFrame = eyeData.bothInFrame;
     const validSize = eyeData.hasValidSize;
+
     const detectionValid = eyesDetected && eyesInFrame && validSize;
     const detectionStable = updateWindow(detectionWindowRef.current, detectionValid);
     const gazeStable = updateWindow(gazeWindowRef.current, gazeValid);
@@ -262,6 +292,7 @@ const Camera = () => {
 
   useEffect(() => {
     if (state === 'identity') return;
+
     const initCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -278,6 +309,7 @@ const Camera = () => {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
+
         const faceMesh = new FaceMesh({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
@@ -291,6 +323,7 @@ const Camera = () => {
           onFaceMeshResultsRef.current(results);
         });
         faceMeshRef.current = faceMesh;
+
         if (videoRef.current) {
           const mpCamera = new MediaPipeCamera(videoRef.current, {
             onFrame: async () => {
@@ -308,7 +341,9 @@ const Camera = () => {
         console.error('Camera error:', err);
       }
     };
+
     initCamera();
+
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -354,14 +389,13 @@ const Camera = () => {
 
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext('2d')!;
-      const isAndroid = /Android/i.test(navigator.userAgent);
       const dpr = isAndroid ? 1 : (window.devicePixelRatio || 1);
 
       canvas.width = CONFIG.FRAME_WIDTH * dpr;
       canvas.height = CONFIG.FRAME_HEIGHT * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      logToScreen(`Canvas: ${canvas.width}x${canvas.height} (DPR: ${dpr}, Android: ${isAndroid})`);
+      logToScreen(`Canvas инициализирован: ${canvas.width}x${canvas.height} (DPR: ${dpr})`);
 
       let isActive = true;
       let frameCount = 0;
@@ -374,8 +408,8 @@ const Camera = () => {
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
 
-        const videoW = videoRef.current!.videoWidth || CONFIG.FRAME_WIDTH;
-        const videoH = videoRef.current!.videoHeight || CONFIG.FRAME_HEIGHT;
+        const videoW = videoRef.current.videoWidth || CONFIG.FRAME_WIDTH;
+        const videoH = videoRef.current.videoHeight || CONFIG.FRAME_HEIGHT;
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
         const scaledW = videoW / effectiveZoom;
         const scaledH = videoH / effectiveZoom;
@@ -385,17 +419,19 @@ const Camera = () => {
         const sx = Math.round((videoW - sw) / 2);
         const sy = Math.round((videoH - sh) / 2);
 
-        ctx.drawImage(videoRef.current!, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        ctx.drawImage(videoRef.current, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-        // Хак: минимальное изменение для проталкивания кадра на Android
+        // Минимальное изменение для "проталкивания" кадра
         ctx.fillStyle = 'rgba(0,0,0,0)';
         ctx.fillRect(0, 0, 1, 1);
 
         ctx.restore();
 
         frameCount++;
-        if (frameCount % 30 === 0) {
-          logToScreen(`Отрисовано кадров: ${frameCount}`);
+
+        // Лог каждые ~2 секунды
+        if (frameCount % (fps * 2) === 0) {
+          logToScreen(`Отрисовано кадров: ${frameCount} (~${Math.round(frameCount / fps)} сек)`);
         }
 
         if (isActive) requestAnimationFrame(drawFrame);
@@ -406,7 +442,7 @@ const Camera = () => {
       const canvasStream = canvas.captureStream(fps);
 
       const mimeType = 'video/webm;codecs=vp8';
-      logToScreen(`Запуск: FPS=${fps}, MIME=${mimeType}, Bitrate=${CONFIG.BITRATE}`);
+      logToScreen(`Запуск записи: FPS=${fps}, MIME=${mimeType}, Bitrate=${CONFIG.BITRATE}`);
 
       const recorder = new MediaRecorder(canvasStream, {
         mimeType,
@@ -414,27 +450,28 @@ const Camera = () => {
       });
       recorderRef.current = recorder;
 
-      recorder.onstart = () => logToScreen('Recorder: STARTED');
-      recorder.onerror = (e: any) => logToScreen(`Recorder ERROR: ${e.message || 'unknown'}`);
+      recorder.onstart = () => logToScreen('Recorder: ЗАПУЩЕН');
 
       recorder.ondataavailable = (e) => {
         if (e.data?.size > 0) {
           chunksRef.current.push(e.data);
-          logToScreen(`Chunk: ${e.data.size} байт (всего чанков: ${chunksRef.current.length})`);
-        } else {
-          logToScreen('Пустой чанк!');
+          // Лог каждые 20 чанков
+          if (chunksRef.current.length % 20 === 0) {
+            logToScreen(`Получено чанков: ${chunksRef.current.length}`);
+          }
         }
       };
 
       recorder.onstop = () => {
         isActive = false;
-        logToScreen(`Стоп. Кадров: ${frameCount}, Чанков: ${chunksRef.current.length}`);
+        logToScreen(`Запись завершена. Кадров: ${frameCount}, Чанков: ${chunksRef.current.length}`);
 
         if (chunksRef.current.length > 0) {
           const blob = new Blob(chunksRef.current, { type: mimeType });
-          logToScreen(`Blob: ${(blob.size / 1024).toFixed(1)} KB`);
+          logToScreen(`Blob создан: ${(blob.size / 1024).toFixed(1)} KB`);
+
           if (blob.size < 50000) {
-            logToScreen('ВНИМАНИЕ: Blob слишком мал — видео вероятно чёрное!');
+            logToScreen('ВНИМАНИЕ: Blob слишком мал — видео вероятно чёрное');
           }
 
           setRecordedBlob(blob);
@@ -444,11 +481,11 @@ const Camera = () => {
             previewRef.current.play().catch(() => {});
           }
         } else {
-          logToScreen('КРИТИЧНО: Нет чанков — запись не удалась');
+          logToScreen('КРИТИЧНО: Нет чанков!');
         }
       };
 
-      recorder.start(100); // timeslice 100ms
+      recorder.start(100);
 
       let count = CONFIG.RECORD_SECONDS;
       let lastSecond = Date.now();
@@ -469,7 +506,7 @@ const Camera = () => {
         }
       }, 100);
     };
-  }, [zoom, supportsHardwareZoom, logToScreen]);
+  }, [zoom, supportsHardwareZoom, logToScreen, isAndroid]);
 
   const resetRecording = () => {
     setState('idle');
@@ -824,11 +861,23 @@ const Camera = () => {
       <canvas ref={canvasRef} className="hidden" />
       <ConsentModal isOpen={showConsent} onClose={() => setShowConsent(false)} />
 
-      {/* === ВРЕМЕННАЯ ПАНЕЛЬ ОТЛАДКИ (ТОЛЬКО НА ANDROID) === */}
-      {/Android/i.test(navigator.userAgent) && (
-        <div className="fixed bottom-0 left-0 right-0 bg-black/90 text-green-400 text-xs font-mono p-3 max-h-64 overflow-y-auto z-50 border-t-4 border-green-600">
-          <div className="font-bold mb-1 text-green-300">ОТЛАДКА (Android)</div>
-          <div id="debug-log" className="space-y-0.5"></div>
+      {/* === ОТЛАДОЧНАЯ ПАНЕЛЬ НА ANDROID === */}
+      {isAndroid && (
+        <div className="fixed bottom-0 left-0 right-0 bg-black/95 z-50 flex flex-col border-t-4 border-green-500">
+          <div className="flex justify-between items-center px-4 py-2 bg-green-900/60">
+            <span className="text-green-300 font-bold text-sm">ОТЛАДКА</span>
+            <button
+              onClick={copyLogs}
+              className="flex items-center gap-2 text-green-300 hover:text-white transition-colors"
+            >
+              <Copy size={18} />
+              <span className="text-sm">Копировать логи</span>
+            </button>
+          </div>
+          <div
+            id="debug-log"
+            className="px-4 py-3 text-green-400 text-xs font-mono max-h-60 overflow-y-auto"
+          />
         </div>
       )}
     </div>
@@ -836,3 +885,7 @@ const Camera = () => {
 };
 
 export default Camera;
+
+Готово! Теперь на Android внизу экрана будет аккуратная панель с логами и кнопкой копирования. После отладки просто удали весь блок `{isAndroid && (...)}`, функцию `logToScreen` и `copyLogs`.
+
+Запусти запись, дождись окончания, нажми «Копировать логи» и пришли сюда весь текст — по нему точно поймём, в чём дело.
