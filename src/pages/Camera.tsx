@@ -639,16 +639,21 @@ const Camera = () => {
                 : 'inset 0 0 0 3px rgba(239, 68, 68, 0.6)'
             }}
           >
+                        {/* Живое видео — показываем только в idle и во время отсчёта */}
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className={`absolute top-1/2 left-1/2 min-w-full min-h-full object-cover ${state === 'preview' ? 'hidden' : ''}`}
+              className={`absolute top-1/2 left-1/2 min-w-full min-h-full object-cover ${
+                state === 'recording' || state === 'preview' ? 'hidden' : ''
+              }`}
               style={{
                 transform: `translate(-50%, -50%) scaleX(-1) scale(${supportsHardwareZoom ? 1 : zoom})`,
               }}
             />
+
+            {/* Превью записанного видео */}
             <video
               ref={previewRef}
               playsInline
@@ -656,6 +661,11 @@ const Camera = () => {
               muted
               className={`w-full h-full object-cover ${state !== 'preview' ? 'hidden' : ''}`}
             />
+
+            {/* Чёрный фон во время записи — чтобы не отвлекать и избежать артефактов */}
+            {state === 'recording' && (
+              <div className="absolute inset-0 bg-black" />
+            )}
 
             {/* Гиды глаз и углы */}
             {(state === 'idle' || state === 'recording') && (
