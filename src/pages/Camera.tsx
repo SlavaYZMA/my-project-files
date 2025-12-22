@@ -7,7 +7,7 @@ import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ConsentModal from '@/components/modals/ConsentModal';
 
-type RecordingState = 'identity' | 'idle' | 'recording' | 'preview';
+type RecordingState = 'identity' | 'intro' | 'idle' | 'recording' | 'preview';
 type BackgroundState = 'red' | 'orange' | 'green';
 
 const CONFIG = {
@@ -189,7 +189,7 @@ const Camera = () => {
   // Process FaceMesh results
   const onFaceMeshResults = useCallback((results: Results) => {
     const currentState = stateRef.current;
-    if (currentState === 'identity' || currentState === 'preview') return;
+    if (currentState === 'identity' || currentState === 'intro' || currentState === 'preview') return;
 
     const now = Date.now();
 
@@ -263,7 +263,6 @@ const Camera = () => {
         detectionWindowRef.current = [];
         gazeWindowRef.current = [];
       }
-      // If eyes are in frame but gaze changed, continue recording (gaze doesn't matter during recording)
     }
   }, [calculateEyeData, calculateGaze]);
 
@@ -274,7 +273,7 @@ const Camera = () => {
 
   // Initialize camera
   useEffect(() => {
-    if (state === 'identity') return;
+    if (state === 'identity' || state === 'intro') return;
 
     const initCamera = async () => {
       try {
@@ -341,7 +340,7 @@ const Camera = () => {
       }
       if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
     };
-  }, [state === 'identity']);
+  }, [state]);
 
   useEffect(() => {
     if (supportsHardwareZoom && streamRef.current) {
@@ -433,8 +432,6 @@ const Camera = () => {
     let lastSecond = Date.now();
     
     recordIntervalRef.current = setInterval(() => {
-      // During recording, count down as long as eyes are in frame (gaze doesn't matter)
-      // The recording will only continue if we're in 'recording' state (which means eyes are in frame)
       if (stateRef.current === 'recording' && recorderRef.current?.state === 'recording') {
         const now = Date.now();
         if (now - lastSecond >= 1000) {
@@ -469,67 +466,56 @@ const Camera = () => {
   };
 
   const saveForever = async () => {
-  if (!recordedBlob || !consentAccepted) return;
+    if (!recordedBlob || !consentAccepted) return;
 
-  setIsSaving(true);
+    setIsSaving(true);
 
-  try {
-    // 1. Генерируем уникальное имя файла
-    const fileId = crypto.randomUUID();
-    const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.webm`;
+    try {
+      const fileId = crypto.randomUUID();
+      const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.webm`;
 
-    // 2. Прямая загрузка в Storage
-    const { error: uploadError } = await supabase.storage
-      .from('eyes')
-      .upload(fileName, recordedBlob, {
-        contentType: 'video/webm',
-        upsert: false,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from('eyes')
+        .upload(fileName, recordedBlob, {
+          contentType: 'video/webm',
+          upsert: false,
+        });
 
-    if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-    // 3. Добавляем запись в таблицу eyes (чтобы Canvas увидел)
-    const { error: eyesError } = await supabase
-      .from('eyes')
-      .insert({ cid: fileName });
+      const { error: eyesError } = await supabase
+        .from('eyes')
+        .insert({ cid: fileName });
 
-    if (eyesError) {
-      console.warn('Не удалось добавить в таблицу eyes, но видео загружено:', eyesError);
-      // Не прерываем — главное, что видео в storage
+      if (eyesError) {
+        console.warn('Не удалось добавить в таблицу eyes, но видео загружено:', eyesError);
+      }
+
+      const deleteToken = crypto.randomUUID();
+
+      const { error: tokenError } = await supabase
+        .from('delete_tokens')
+        .insert({
+          cid: fileName,
+          delete_token: deleteToken,
+        });
+
+      if (tokenError) {
+        console.warn('Не удалось создать токен удаления:', tokenError);
+      }
+
+      const siteUrl = window.location.origin;
+      const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
+
+      setDeleteUrl(deleteUrl);
+
+    } catch (err: any) {
+      console.error('Save error:', err);
+      alert('Ошибка сохранения: ' + err.message);
+    } finally {
+      setIsSaving(false);
     }
-
-    // 4. Генерируем уникальный одноразовый токен для удаления
-    const deleteToken = crypto.randomUUID();
-
-    const { error: tokenError } = await supabase
-      .from('delete_tokens')
-      .insert({
-        cid: fileName,
-        delete_token: deleteToken,
-      });
-
-    if (tokenError) {
-      console.warn('Не удалось создать токен удаления:', tokenError);
-      // Продолжаем — пользователь всё равно увидит видео
-    }
-
-    // 5. Формируем ссылку для удаления
-    const siteUrl = window.location.origin; // например https://vechnoe.netlify.app
-    const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
-
-    // 6. Показываем пользователю ссылку
-    setDeleteUrl(deleteUrl);
-
-    // Опционально: сброс формы или переход на canvas
-    // resetRecording(); // если хочешь сбросить камеру сразу
-
-  } catch (err: any) {
-    console.error('Save error:', err);
-    alert('Ошибка сохранения: ' + err.message);
-  } finally {
-    setIsSaving(false);
-  }
-};
+  };
 
   const downloadVideo = () => {
     if (!recordedBlob) return;
@@ -546,9 +532,53 @@ const Camera = () => {
   };
 
   const confirmIdentity = () => {
+    setState('intro');
+  };
+
+  const goToRecording = () => {
     setState('idle');
   };
 
+  const goBackToIdentity = () => {
+    setState('identity');
+  };
+
+  // Intro screen (new)
+  if (state === 'intro') {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
+        <div className="max-w-lg text-center">
+          <h2 className="text-2xl mb-8 text-white/90">{t('camera.instructionTitle') || 'Инструкция перед записью'}</h2>
+          
+          <div className="text-left text-sm space-y-4 mb-12 text-white/70">
+            <p>Вы собираетесь записать короткое видео длительностью 5 секунд, на котором будут видны только ваши глаза.</p>
+            <p>Камера автоматически начнёт запись, когда:</p>
+            <ul className="list-disc list-inside space-y-2 ml-4">
+              <li>Оба глаза находятся в кадре (в пределах овальных контуров)</li>
+              <li>Вы смотрите прямо в камеру</li>
+              <li>Фон рамки станет зелёным</li>
+            </ul>
+            <p>Если глаза выйдут из кадра во время записи — она прервётся и начнётся заново.</p>
+            <p className="font-bold mt-6">Смотрите прямо в камеру и не моргайте сильно — это важно.</p>
+          </div>
+
+          <button
+            onClick={goToRecording}
+            className="px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors mb-6"
+          >
+            Перейти к съёмке
+          </button>
+
+          <button
+            onClick={goBackToIdentity}
+            className="block text-white/40 text-sm hover:text-white/70 transition-colors"
+          >
+            ← Назад
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Identity confirmation screen
   if (state === 'identity') {
