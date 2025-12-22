@@ -549,16 +549,6 @@ const Camera = () => {
     setState('idle');
   };
 
-  // Get background color based on state
-  const getBgColor = () => {
-    if (state === 'preview' || state === 'identity') return 'bg-black';
-    switch (bgState) {
-      case 'green': return 'bg-green-900/30';
-      case 'orange': return 'bg-orange-900/30';
-      case 'red': return 'bg-red-900/30';
-      default: return 'bg-black';
-    }
-  };
 
   // Identity confirmation screen
   if (state === 'identity') {
@@ -594,7 +584,7 @@ const Camera = () => {
   }
 
   return (
-    <div className={`min-h-screen text-white flex flex-col items-center relative font-mono transition-colors duration-500 ${getBgColor()}`}>
+    <div className="min-h-screen bg-black text-white flex flex-col items-center relative font-mono">
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
         <ArrowLeft size={24} />
       </Link>
@@ -648,13 +638,12 @@ const Camera = () => {
             style={{
               width: CONFIG.FRAME_WIDTH,
               height: CONFIG.FRAME_HEIGHT,
-              boxShadow: state === 'preview' 
-                ? 'inset 0 0 0 2px rgba(255,255,255,0.3)'
-                : bgState === 'green'
-                  ? 'inset 0 0 0 3px rgba(34, 197, 94, 0.6)'
-                  : bgState === 'orange'
-                    ? 'inset 0 0 0 3px rgba(249, 115, 22, 0.6)'
-                    : 'inset 0 0 0 3px rgba(239, 68, 68, 0.6)'
+              boxShadow:
+        bgState === 'green'
+        ? 'inset 0 0 0 3px rgba(34, 197, 94, 0.6)'
+        : bgState === 'orange'
+        ? 'inset 0 0 0 3px rgba(249, 115, 22, 0.6)'
+        : 'inset 0 0 0 3px rgba(239, 68, 68, 0.6)'
             }}
           >
             <video
