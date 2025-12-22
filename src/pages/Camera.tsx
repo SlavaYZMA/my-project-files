@@ -67,7 +67,7 @@ const Camera = () => {
   const stateRef = useRef<RecordingState>('identity');
   const bgStateRef = useRef<BackgroundState>('red');
 
-  // Блокировка повторного запуска записи
+  // Блокировка повторного запуска
   const isStartingRef = useRef(false);
 
   const [state, setState] = useState<RecordingState>('identity');
@@ -104,7 +104,6 @@ const Camera = () => {
     bgStateRef.current = bgState;
   }, [bgState]);
 
-  // Расчёт направления взгляда
   const calculateGaze = useCallback((landmarks: Results['multiFaceLandmarks'][0]): boolean => {
     if (!landmarks || landmarks.length < 478) return false;
 
@@ -137,7 +136,6 @@ const Camera = () => {
     return leftValid && rightValid;
   }, []);
 
-  // Расчёт данных глаз
   const calculateEyeData = useCallback((landmarks: Results['multiFaceLandmarks'][0]): EyeData => {
     if (!landmarks || landmarks.length < 478) {
       return { leftEye: null, rightEye: null, bothInFrame: false, hasValidSize: false };
@@ -255,9 +253,7 @@ const Camera = () => {
     onFaceMeshResultsRef.current = onFaceMeshResults;
   }, [onFaceMeshResults]);
 
-  // === ИСПРАВЛЕННАЯ ФУНКЦИЯ startRecording ===
   const startRecording = useCallback(() => {
-    // ЖЁСТКАЯ БЛОКИРОВКА ДВОЙНОГО ЗАПУСКА
     if (stateRef.current !== 'idle' || isStartingRef.current) {
       console.log('Recording start blocked: already active');
       return;
@@ -266,7 +262,7 @@ const Camera = () => {
 
     setState('recording');
     setIsRecording(false);
-    let prepCount = 3; // Для теста 3, в проде можно 5
+    let prepCount = 3; // Для теста 3, можно вернуть 5
     setPrepTimer(prepCount);
 
     const prepInterval = setInterval(() => {
@@ -283,6 +279,7 @@ const Camera = () => {
     const proceedToActualRecording = () => {
       isStartingRef.current = false;
       addLog('=== START ACTUAL RECORDING ===');
+
       setRecordTime(CONFIG.RECORD_SECONDS);
       chunksRef.current = [];
       setIsRecording(true);
@@ -290,7 +287,6 @@ const Camera = () => {
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
 
-      const dpr = 1; // Форсируем 1 для избежания проблем с субпикселями
       canvas.width = CONFIG.FRAME_WIDTH;
       canvas.height = CONFIG.FRAME_HEIGHT;
 
@@ -298,6 +294,7 @@ const Camera = () => {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       let isActive = true;
+
       const drawFrame = () => {
         if (!videoRef.current || !isActive) return;
         const video = videoRef.current;
@@ -309,33 +306,52 @@ const Camera = () => {
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
 
-        const videoW = video.videoWidth || CONFIG.FRAME_WIDTH;
-        const videoH = video.videoHeight || CONFIG.FRAME_HEIGHT;
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
+
+        const inputAspect = videoW / videoH;
+        const outputAspect = CONFIG.FRAME_WIDTH / CONFIG.FRAME_HEIGHT;
+
+        let sw, sh, sx, sy;
+
+        if (inputAspect > outputAspect) {
+          // Видео шире → обрезаем по ширине
+          sh = videoH;
+          sw = videoH * outputAspect;
+          sx = (videoW - sw) / 2;
+          sy = 0;
+        } else {
+          // Видео выше → обрезаем по высоте (портретный режим)
+          sw = videoW;
+          sh = videoW / outputAspect;
+          sx = 0;
+          sy = (videoH - sh) / 2;
+        }
+
+        // Применяем зум
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-
-        const scaledW = videoW / effectiveZoom;
-        const scaledH = videoH / effectiveZoom;
-        const scale = Math.max(CONFIG.FRAME_WIDTH / scaledW, CONFIG.FRAME_HEIGHT / scaledH);
-
-        const sw = Math.round(CONFIG.FRAME_WIDTH / scale);
-        const sh = Math.round(CONFIG.FRAME_HEIGHT / scale);
-        const sx = Math.round((videoW - sw) / 2);
-        const sy = Math.round((videoH - sh) / 2);
+        if (effectiveZoom > 1) {
+          const zoomW = sw / effectiveZoom;
+          const zoomH = sh / effectiveZoom;
+          sx += (sw - zoomW) / 2;
+          sy += (sh - zoomH) / 2;
+          sw = zoomW;
+          sh = zoomH;
+        }
 
         try {
           ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-        } catch (e) {
-          // ignore
-        }
+        } catch (e) {}
+
         ctx.restore();
 
         if (isActive) requestAnimationFrame(drawFrame);
       };
+
       drawFrame();
 
       const canvasStream = canvas.captureStream(CONFIG.FPS);
 
-      // Выбор MIME-типа (особенно важен для Android)
       let mimeType = '';
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
@@ -399,23 +415,31 @@ const Camera = () => {
         recorder.start(100);
         addLog('MediaRecorder started');
 
-        let count = CONFIG.RECORD_SECONDS;
-        let lastSecond = Date.now();
-        recordIntervalRef.current = setInterval(() => {
-          if (stateRef.current === 'recording') {
-            const now = Date.now();
-            if (now - lastSecond >= 1000) {
-              lastSecond = now;
-              count--;
-              setRecordTime(count);
-              if (count <= 0) {
-                if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
-                recordIntervalRef.current = null;
-                if (recorder.state === 'recording') recorder.stop();
-              }
+        // === ИСПРАВЛЕННЫЙ ТАЙМЕР ===
+        let secondsLeft = CONFIG.RECORD_SECONDS;
+        const startTime = Date.now();
+
+        const timerId = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - startTime) / 1000);
+          const newSecondsLeft = CONFIG.RECORD_SECONDS - elapsed;
+
+          if (newSecondsLeft !== secondsLeft) {
+            secondsLeft = newSecondsLeft;
+            if (secondsLeft >= 0) {
+              setRecordTime(secondsLeft);
+            }
+          }
+
+          if (secondsLeft <= 0) {
+            clearInterval(timerId);
+            if (recorderRef.current?.state === 'recording') {
+              recorderRef.current.stop();
             }
           }
         }, 100);
+
+        recordIntervalRef.current = timerId;
+
       } catch (e: any) {
         addLog(`Recorder init failed: ${e.message}`);
         isStartingRef.current = false;
@@ -424,7 +448,7 @@ const Camera = () => {
     };
   }, [zoom, supportsHardwareZoom, addLog]);
 
-  // Инициализация камеры
+  // Инициализация камеры и остальные функции остаются без изменений
   useEffect(() => {
     if (state === 'identity') return;
 
@@ -871,7 +895,6 @@ const Camera = () => {
         )}
       </div>
 
-      {/* DEBUG LOG OVERLAY */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 text-green-400 text-xs font-mono p-2 max-h-64 overflow-y-auto z-50 border-t border-white/20">
         <div className="flex justify-between items-center mb-1 px-2">
           <span className="text-white/60">DEBUG LOGS (скопируйте текст)</span>
