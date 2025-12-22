@@ -7,6 +7,7 @@ import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ConsentModal from '@/components/modals/ConsentModal';
 
+// Добавлен стейт 'intro'
 type RecordingState = 'identity' | 'intro' | 'idle' | 'recording' | 'preview';
 type BackgroundState = 'red' | 'orange' | 'green';
 
@@ -263,6 +264,7 @@ const Camera = () => {
         detectionWindowRef.current = [];
         gazeWindowRef.current = [];
       }
+      // If eyes are in frame but gaze changed, continue recording (gaze doesn't matter during recording)
     }
   }, [calculateEyeData, calculateGaze]);
 
@@ -273,6 +275,7 @@ const Camera = () => {
 
   // Initialize camera
   useEffect(() => {
+    // Не запускаем камеру в Identity или Intro
     if (state === 'identity' || state === 'intro') return;
 
     const initCamera = async () => {
@@ -340,7 +343,7 @@ const Camera = () => {
       }
       if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
     };
-  }, [state]);
+  }, [state]); // Зависимость от state, чтобы запускаться при переходе в idle
 
   useEffect(() => {
     if (supportsHardwareZoom && streamRef.current) {
@@ -432,6 +435,8 @@ const Camera = () => {
     let lastSecond = Date.now();
     
     recordIntervalRef.current = setInterval(() => {
+      // During recording, count down as long as eyes are in frame (gaze doesn't matter)
+      // The recording will only continue if we're in 'recording' state (which means eyes are in frame)
       if (stateRef.current === 'recording' && recorderRef.current?.state === 'recording') {
         const now = Date.now();
         if (now - lastSecond >= 1000) {
@@ -466,56 +471,56 @@ const Camera = () => {
   };
 
   const saveForever = async () => {
-    if (!recordedBlob || !consentAccepted) return;
+  if (!recordedBlob || !consentAccepted) return;
 
-    setIsSaving(true);
+  setIsSaving(true);
 
-    try {
-      const fileId = crypto.randomUUID();
-      const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.webm`;
+  try {
+    const fileId = crypto.randomUUID();
+    const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.webm`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('eyes')
-        .upload(fileName, recordedBlob, {
-          contentType: 'video/webm',
-          upsert: false,
-        });
+    const { error: uploadError } = await supabase.storage
+      .from('eyes')
+      .upload(fileName, recordedBlob, {
+        contentType: 'video/webm',
+        upsert: false,
+      });
 
-      if (uploadError) throw uploadError;
+    if (uploadError) throw uploadError;
 
-      const { error: eyesError } = await supabase
-        .from('eyes')
-        .insert({ cid: fileName });
+    const { error: eyesError } = await supabase
+      .from('eyes')
+      .insert({ cid: fileName });
 
-      if (eyesError) {
-        console.warn('Не удалось добавить в таблицу eyes, но видео загружено:', eyesError);
-      }
-
-      const deleteToken = crypto.randomUUID();
-
-      const { error: tokenError } = await supabase
-        .from('delete_tokens')
-        .insert({
-          cid: fileName,
-          delete_token: deleteToken,
-        });
-
-      if (tokenError) {
-        console.warn('Не удалось создать токен удаления:', tokenError);
-      }
-
-      const siteUrl = window.location.origin;
-      const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
-
-      setDeleteUrl(deleteUrl);
-
-    } catch (err: any) {
-      console.error('Save error:', err);
-      alert('Ошибка сохранения: ' + err.message);
-    } finally {
-      setIsSaving(false);
+    if (eyesError) {
+      console.warn('Не удалось добавить в таблицу eyes, но видео загружено:', eyesError);
     }
-  };
+
+    const deleteToken = crypto.randomUUID();
+
+    const { error: tokenError } = await supabase
+      .from('delete_tokens')
+      .insert({
+        cid: fileName,
+        delete_token: deleteToken,
+      });
+
+    if (tokenError) {
+      console.warn('Не удалось создать токен удаления:', tokenError);
+    }
+
+    const siteUrl = window.location.origin;
+    const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
+
+    setDeleteUrl(deleteUrl);
+
+  } catch (err: any) {
+    console.error('Save error:', err);
+    alert('Ошибка сохранения: ' + err.message);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const downloadVideo = () => {
     if (!recordedBlob) return;
@@ -532,53 +537,17 @@ const Camera = () => {
   };
 
   const confirmIdentity = () => {
-    setState('intro');
+    setState('intro'); // Переход к интро вместо idle
   };
 
-  const goToRecording = () => {
-    setState('idle');
+  const startShooting = () => {
+    setState('idle'); // Переход к съемке
   };
 
-  const goBackToIdentity = () => {
-    setState('identity');
+  const backFromIntro = () => {
+    setState('identity'); // Возврат к identity
   };
 
-  // Intro screen (new)
-  if (state === 'intro') {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
-        <div className="max-w-lg text-center">
-          <h2 className="text-2xl mb-8 text-white/90">{t('camera.instructionTitle') || 'Инструкция перед записью'}</h2>
-          
-          <div className="text-left text-sm space-y-4 mb-12 text-white/70">
-            <p>Вы собираетесь записать короткое видео длительностью 5 секунд, на котором будут видны только ваши глаза.</p>
-            <p>Камера автоматически начнёт запись, когда:</p>
-            <ul className="list-disc list-inside space-y-2 ml-4">
-              <li>Оба глаза находятся в кадре (в пределах овальных контуров)</li>
-              <li>Вы смотрите прямо в камеру</li>
-              <li>Фон рамки станет зелёным</li>
-            </ul>
-            <p>Если глаза выйдут из кадра во время записи — она прервётся и начнётся заново.</p>
-            <p className="font-bold mt-6">Смотрите прямо в камеру и не моргайте сильно — это важно.</p>
-          </div>
-
-          <button
-            onClick={goToRecording}
-            className="px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors mb-6"
-          >
-            Перейти к съёмке
-          </button>
-
-          <button
-            onClick={goBackToIdentity}
-            className="block text-white/40 text-sm hover:text-white/70 transition-colors"
-          >
-            ← Назад
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   // Identity confirmation screen
   if (state === 'identity') {
@@ -613,34 +582,66 @@ const Camera = () => {
     );
   }
 
+  // Intro / Instructions screen
+  if (state === 'intro') {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
+        <div className="max-w-lg w-full">
+            <div className="mb-10 text-center">
+                <p className="text-white text-lg font-bold mb-6">{t('camera.instructionTitle')}</p>
+            </div>
+            
+            <ul className="space-y-6 mb-12">
+                <li className="flex items-start gap-4">
+                    <span className="w-4 h-4 mt-1 border border-white/40 rounded-sm flex-shrink-0"></span>
+                    <span className="text-white/80 text-sm">{t('camera.instructionWhite')}</span>
+                </li>
+                <li className="flex items-start gap-4">
+                    <span className="w-4 h-4 mt-1 bg-red-600/60 rounded-sm flex-shrink-0"></span>
+                    <span className="text-white/80 text-sm">{t('camera.instructionRed')}</span>
+                </li>
+                <li className="flex items-start gap-4">
+                    <span className="w-4 h-4 mt-1 bg-yellow-500/60 rounded-sm flex-shrink-0"></span>
+                    <span className="text-white/80 text-sm">{t('camera.instructionYellow')}</span>
+                </li>
+                <li className="flex items-start gap-4">
+                    <span className="w-4 h-4 mt-1 bg-green-500/60 rounded-sm flex-shrink-0"></span>
+                    <span className="text-white/80 text-sm">{t('camera.instructionGreen')}</span>
+                </li>
+            </ul>
+
+            <div className="flex flex-col gap-4 items-center">
+                <button
+                    onClick={startShooting}
+                    className="w-full px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
+                >
+                    {language === 'ru' ? 'Перейти к съёмке' : 'Start Shooting'}
+                </button>
+                
+                <button 
+                    onClick={backFromIntro}
+                    className="text-white/30 text-xs hover:text-white/60 transition-colors uppercase tracking-widest"
+                >
+                    {language === 'ru' ? 'Назад' : 'Back'}
+                </button>
+            </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center relative font-mono">
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
         <ArrowLeft size={24} />
       </Link>
 
-      {/* Instructions above frame */}
+      {/* Mini instructions above frame (optional, keep if you want reminder) */}
       {state !== 'preview' && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 text-left px-4 max-w-lg">
-          <p className="text-white/80 text-xs font-bold mb-2">{t('camera.instructionTitle')}</p>
-          <ul className="text-white/60 text-xs space-y-1">
-            <li className="flex items-center gap-2">
-              <span className="w-3 h-3 border border-white/40 rounded-sm flex-shrink-0"></span>
-              {t('camera.instructionWhite')}
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-red-600/60 rounded-sm flex-shrink-0"></span>
-              {t('camera.instructionRed')}
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-yellow-500/60 rounded-sm flex-shrink-0"></span>
-              {t('camera.instructionYellow')}
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-3 h-3 bg-green-500/60 rounded-sm flex-shrink-0"></span>
-              {t('camera.instructionGreen')}
-            </li>
-          </ul>
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 text-left px-4 max-w-lg w-full">
+             <div className="flex justify-between items-center opacity-50 text-[10px] uppercase tracking-wider text-white">
+                <span>{t('camera.instructionTitle')}</span>
+             </div>
         </div>
       )}
 
