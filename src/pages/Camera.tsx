@@ -84,6 +84,7 @@ const Camera = () => {
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [showConsent, setShowConsent] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isIdentified, setIsIdentified] = useState(false);
 
   const recordIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const stateRef = useRef(state);
@@ -524,7 +525,7 @@ const Camera = () => {
     setState('idle');
   };
 
-  // Identity confirmation screen
+ // Identity confirmation screen
   if (state === 'identity') {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
@@ -535,8 +536,8 @@ const Camera = () => {
             </div>
           </div>
           
-          {/* Инструкция: сделана компактнее и спокойнее */}
-          <div className="mb-10 bg-white/5 p-6 rounded-lg border border-white/10 text-left opacity-80">
+          {/* Инструкция: справочный блок */}
+          <div className="mb-10 bg-white/5 p-6 rounded-lg border border-white/10 text-left opacity-70">
             <h3 className="text-white/90 font-bold text-xs uppercase tracking-widest mb-4">
               {language === 'ru' ? 'Как записывать видео:' : 'How to record video:'}
             </h3>
@@ -565,20 +566,30 @@ const Camera = () => {
             </ul>
           </div>
 
-          {/* Главная фраза: Увеличена и выделена */}
-          <div className="mb-10 px-4">
-            <p className="text-white text-lg md:text-xl font-medium leading-relaxed tracking-tight">
-              {language === 'ru' 
-                ? 'Я подтверждаю, что идентифицирую себя как женщина, пережившая гендерное насилие.' 
-                : 'I confirm that I identify as a woman who has experienced gender-based violence.'}
-            </p>
+          {/* Блок подтверждения с чекбоксом */}
+          <div className="mb-10 group cursor-pointer" onClick={() => setIsIdentified(!isIdentified)}>
+            <div className="flex items-start gap-4 text-left bg-white/5 p-6 rounded-lg border border-white/20 hover:border-white/40 transition-colors">
+              <div className={`mt-1 min-w-[24px] h-[24px] border-2 flex items-center justify-center transition-all ${isIdentified ? 'bg-white border-white' : 'border-white/40'}`}>
+                {isIdentified && <div className="w-3 h-3 bg-black" />}
+              </div>
+              <p className={`text-lg md:text-xl font-medium leading-tight transition-colors ${isIdentified ? 'text-white' : 'text-white/50'}`}>
+                {language === 'ru' 
+                  ? 'Я подтверждаю, что идентифицирую себя как женщина, пережившая гендерное насилие.' 
+                  : 'I confirm that I identify as a woman who has experienced gender-based violence.'}
+              </p>
+            </div>
           </div>
 
           <button
             onClick={confirmIdentity}
-            className="px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95"
+            disabled={!isIdentified}
+            className={`px-12 py-4 text-sm font-bold uppercase tracking-widest transition-all active:scale-95 ${
+              isIdentified 
+              ? 'bg-white text-black hover:bg-white/90' 
+              : 'bg-white/10 text-white/20 cursor-not-allowed'
+            }`}
           >
-            {t('camera.confirm')}
+            {language === 'ru' ? 'К СЪЕМКЕ' : 'START RECORDING'}
           </button>
 
           <Link 
