@@ -351,114 +351,149 @@ const Camera = () => {
   }, [zoom, supportsHardwareZoom]);
 
   const startRecording = useCallback(() => {
-    if (stateRef.current !== 'idle') return;
-    
-    setState('recording');
-    setIsRecording(false); // Not recording yet, just preparing
-    
-    let prepCount = 3;
-    setPrepTimer(prepCount);
+  if (stateRef.current !== 'idle') return;
+ 
+  setState('recording');
+  setIsRecording(false); // Not recording yet, just preparing
+ 
+  let prepCount = 3;
+  setPrepTimer(prepCount);
+  const prepInterval = setInterval(() => {
+    prepCount--;
+    if (prepCount > 0) {
+      setPrepTimer(prepCount);
+    } else {
+      clearInterval(prepInterval);
+      setPrepTimer(null);
+      proceedToActualRecording();
+    }
+  }, 1000);
+  const proceedToActualRecording = () => {
+    setRecordTime(CONFIG.RECORD_SECONDS);
+    chunksRef.current = [];
+    setIsRecording(true);
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext('2d')!;
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const dpr = isAndroid ? 1 : (window.devicePixelRatio || 1);
+ 
+    canvas.width = CONFIG.FRAME_WIDTH * dpr;
+    canvas.height = CONFIG.FRAME_HEIGHT * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const prepInterval = setInterval(() => {
-      prepCount--;
-      if (prepCount > 0) {
-        setPrepTimer(prepCount);
-      } else {
-        clearInterval(prepInterval);
-        setPrepTimer(null);
-        proceedToActualRecording();
+    // Тест: Лог размеров canvas
+    console.log(`Canvas size: ${canvas.width}x${canvas.height} (DPR: ${dpr}, Android: ${isAndroid})`);
+
+    let isActive = true;
+    let frameCount = 0; // Счётчик отрисованных кадров
+
+    const drawFrame = () => {
+      if (!videoRef.current || !isActive) return;
+      ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+      ctx.save();
+      ctx.translate(CONFIG.FRAME_WIDTH, 0);
+      ctx.scale(-1, 1);
+      const videoW = videoRef.current.videoWidth || CONFIG.FRAME_WIDTH;
+      const videoH = videoRef.current.videoHeight || CONFIG.FRAME_HEIGHT;
+      const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+      const scaledW = videoW / effectiveZoom;
+      const scaledH = videoH / effectiveZoom;
+      const scale = Math.max(CONFIG.FRAME_WIDTH / scaledW, CONFIG.FRAME_HEIGHT / scaledH);
+      const sw = Math.round(CONFIG.FRAME_WIDTH / scale);
+      const sh = Math.round(CONFIG.FRAME_HEIGHT / scale);
+      const sx = Math.round((videoW - sw) / 2);
+      const sy = Math.round((videoH - sh) / 2);
+      ctx.drawImage(videoRef.current, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+
+      // Hack для Android: Добавляем минимальное изменение, чтобы "протолкнуть" кадр (workaround для бага с redraw)
+      ctx.fillStyle = 'rgba(0,0,0,0)'; // Прозрачный
+      ctx.fillRect(0, 0, 1, 1); // Маленький пиксель
+
+      ctx.restore();
+
+      frameCount++;
+      if (frameCount % 60 === 0) { // Лог каждые 60 кадров (1 сек при 60fps)
+        console.log(`Drawn frames: ${frameCount}`);
       }
-    }, 1000);
 
-    const proceedToActualRecording = () => {
-      setRecordTime(CONFIG.RECORD_SECONDS);
-      chunksRef.current = [];
-      setIsRecording(true);
-
-      const canvas = canvasRef.current!;
-      const ctx = canvas.getContext('2d')!;
-
-      const isAndroid = /Android/i.test(navigator.userAgent);
-      const dpr = isAndroid ? 1 : (window.devicePixelRatio || 1)
-    
-      canvas.width = CONFIG.FRAME_WIDTH * dpr;
-      canvas.height = CONFIG.FRAME_HEIGHT * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      let isActive = true;
-
-      const drawFrame = () => {
-        if (!videoRef.current || !isActive) return;
-        ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-        ctx.save();
-        ctx.translate(CONFIG.FRAME_WIDTH, 0);
-        ctx.scale(-1, 1);
-        const videoW = videoRef.current.videoWidth || CONFIG.FRAME_WIDTH;
-        const videoH = videoRef.current.videoHeight || CONFIG.FRAME_HEIGHT;
-        const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-        const scaledW = videoW / effectiveZoom;
-        const scaledH = videoH / effectiveZoom;
-        const scale = Math.max(CONFIG.FRAME_WIDTH / scaledW, CONFIG.FRAME_HEIGHT / scaledH);
-        const sw = Math.round(CONFIG.FRAME_WIDTH / scale);
-        const sh = Math.round(CONFIG.FRAME_HEIGHT / scale);
-        const sx = Math.round((videoW - sw) / 2);
-        const sy = Math.round((videoH - sh) / 2);
-        ctx.drawImage(videoRef.current, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-        ctx.restore();
-        if (isActive) requestAnimationFrame(drawFrame);
-      };
-      drawFrame();
-
-      const canvasStream = canvas.captureStream(CONFIG.FPS);
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? 'video/webm;codecs=vp9'
-        : 'video/webm';
-
-      const recorder = new MediaRecorder(canvasStream, {
-        mimeType,
-        videoBitsPerSecond: CONFIG.BITRATE
-      });
-      recorderRef.current = recorder;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data?.size) chunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        isActive = false;
-        if (chunksRef.current.length > 0) {
-          const blob = new Blob(chunksRef.current, { type: mimeType });
-          setRecordedBlob(blob);
-          setState('preview');
-          if (previewRef.current) {
-            previewRef.current.src = URL.createObjectURL(blob);
-            previewRef.current.play().catch(() => {});
-          }
-        }
-      };
-
-      recorder.start(100);
-
-      let count = CONFIG.RECORD_SECONDS;
-      let lastSecond = Date.now();
-      
-      recordIntervalRef.current = setInterval(() => {
-        if (stateRef.current === 'recording' && recorderRef.current?.state === 'recording') {
-          const now = Date.now();
-          if (now - lastSecond >= 1000) {
-            lastSecond = now;
-            count--;
-            setRecordTime(count);
-            if (count <= 0) {
-              if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
-              recordIntervalRef.current = null;
-              if (recorder.state === 'recording') recorder.stop();
-            }
-          }
-        }
-      }, 100);
+      if (isActive) requestAnimationFrame(drawFrame);
     };
-  }, [zoom, supportsHardwareZoom]);
+    drawFrame();
+
+    // Тест: Уменьшить FPS на Android
+    const fps = isAndroid ? 15 : CONFIG.FPS;
+    const canvasStream = canvas.captureStream(fps);
+
+    // Force VP8 для стабильности на Android (удалена проверка VP9)
+    const mimeType = 'video/webm;codecs=vp8';
+    console.log(`Using MIME: ${mimeType}, FPS: ${fps}, Bitrate: ${CONFIG.BITRATE}`);
+
+    const recorder = new MediaRecorder(canvasStream, {
+      mimeType,
+      videoBitsPerSecond: CONFIG.BITRATE
+    });
+    recorderRef.current = recorder;
+
+    // Тест: Лог событий recorder
+    recorder.onstart = () => console.log('Recorder started');
+    recorder.onerror = (e) => console.error('Recorder error:', e);
+    recorder.onpause = () => console.log('Recorder paused');
+    recorder.onresume = () => console.log('Recorder resumed');
+
+    recorder.ondataavailable = (e) => {
+      if (e.data?.size > 0) {
+        chunksRef.current.push(e.data);
+        console.log(`Chunk received: size=${e.data.size}, total chunks=${chunksRef.current.length}`);
+      } else {
+        console.warn('Empty chunk received!');
+      }
+    };
+    recorder.onstop = () => {
+      isActive = false;
+      console.log(`Recording stopped. Total frames drawn: ${frameCount}, Total chunks: ${chunksRef.current.length}`);
+
+      if (chunksRef.current.length > 0) {
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        console.log(`Blob created: size=${blob.size} bytes, type=${blob.type}`);
+
+        // Тест: Если blob маленький — проблема (ожидаемо ~500KB+ для 5с)
+        if (blob.size < 100000) { // <100KB — подозрительно пустой
+          console.error('Blob too small! Likely black/empty video.');
+        }
+
+        setRecordedBlob(blob);
+        setState('preview');
+        if (previewRef.current) {
+          previewRef.current.src = URL.createObjectURL(blob);
+          previewRef.current.play().catch((err) => console.error('Preview play error:', err));
+        }
+      } else {
+        console.error('No chunks! Recording failed.');
+      }
+    };
+
+    recorder.start(100); // Timeslice 100ms для частых ondataavailable
+
+    let count = CONFIG.RECORD_SECONDS;
+    let lastSecond = Date.now();
+ 
+    recordIntervalRef.current = setInterval(() => {
+      if (stateRef.current === 'recording' && recorderRef.current?.state === 'recording') {
+        const now = Date.now();
+        if (now - lastSecond >= 1000) {
+          lastSecond = now;
+          count--;
+          setRecordTime(count);
+          if (count <= 0) {
+            if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
+            recordIntervalRef.current = null;
+            if (recorder.state === 'recording') recorder.stop();
+          }
+        }
+      }
+    }, 100);
+  };
+}, [zoom, supportsHardwareZoom]);
 
   const resetRecording = () => {
     setState('idle');
