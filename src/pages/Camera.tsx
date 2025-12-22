@@ -19,16 +19,21 @@ const CONFIG = {
   ZOOM_MIN: 1,
   ZOOM_MAX: 3,
   ZOOM_STEP: 0.1,
+  // Detection thresholds
   MIN_EYE_WIDTH: 0.08,
   MAX_EYE_WIDTH: 0.35,
   FRAME_MARGIN: 0.05,
+  // Gaze thresholds
   GAZE_THRESHOLD_X: 0.15,
   GAZE_THRESHOLD_Y: 0.15,
+  // Sliding window for stability
   STABILITY_WINDOW: 5,
   STABILITY_MIN_VALID: 4,
+  // Blink tolerance
   BLINK_TOLERANCE_MS: 600,
 };
 
+// FaceMesh landmark indices
 const LEFT_EYE_INDICES = [33, 133, 160, 159, 158, 157, 173, 246, 161, 163];
 const RIGHT_EYE_INDICES = [362, 263, 387, 386, 385, 384, 398, 466, 388, 390];
 const LEFT_IRIS_CENTER = 468;
@@ -61,10 +66,15 @@ const Camera = () => {
   const faceMeshRef = useRef<FaceMesh | null>(null);
   const mediaPipeCameraRef = useRef<MediaPipeCamera | null>(null);
 
+  // Refs for stability windows and timers
   const detectionWindowRef = useRef<boolean[]>([]);
   const gazeWindowRef = useRef<boolean[]>([]);
   const blinkStartRef = useRef<number | null>(null);
   const lastDetectionRef = useRef<number>(Date.now());
+
+  // Countdown state
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [state, setState] = useState<RecordingState>('identity');
   const [recordTime, setRecordTime] = useState(CONFIG.RECORD_SECONDS);
@@ -78,12 +88,7 @@ const Camera = () => {
   const [showConsent, setShowConsent] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  // Новый стейт для отсчёта
-  const [countdown, setCountdown] = useState<number | null>(null);
-
   const recordIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const stateRef = useRef(state);
   const bgStateRef = useRef(bgState);
 
@@ -95,6 +100,7 @@ const Camera = () => {
     bgStateRef.current = bgState;
   }, [bgState]);
 
+  // Calculate gaze direction
   const calculateGaze = useCallback((landmarks: Results['multiFaceLandmarks'][0]): boolean => {
     if (!landmarks || landmarks.length < 478) return false;
 
@@ -132,6 +138,7 @@ const Camera = () => {
     return leftValid && rightValid;
   }, []);
 
+  // Calculate eye data
   const calculateEyeData = useCallback((landmarks: Results['multiFaceLandmarks'][0]): EyeData => {
     if (!landmarks || landmarks.length < 478) {
       return { leftEye: null, rightEye: null, bothInFrame: false, hasValidSize: false };
@@ -175,6 +182,7 @@ const Camera = () => {
     };
   }, []);
 
+  // Update sliding window
   const updateWindow = (window: boolean[], value: boolean): boolean => {
     window.push(value);
     if (window.length > CONFIG.STABILITY_WINDOW) window.shift();
@@ -182,12 +190,40 @@ const Camera = () => {
     return validCount >= CONFIG.STABILITY_MIN_VALID;
   };
 
+  // Start countdown
+  const startCountdown = () => {
+    setCountdown(3);
+    let count = 3;
+    const tick = () => {
+      count -= 1;
+      if (count > 0) {
+        setCountdown(count);
+        countdownTimeoutRef.current = setTimeout(tick, 1000);
+      } else {
+        setCountdown(null);
+        startRecording();
+      }
+    };
+    countdownTimeoutRef.current = setTimeout(tick, 1000);
+  };
+
+  // Reset countdown
+  const resetCountdown = () => {
+    if (countdownTimeoutRef.current) {
+      clearTimeout(countdownTimeoutRef.current);
+      countdownTimeoutRef.current = null;
+    }
+    setCountdown(null);
+  };
+
+  // Process FaceMesh results
   const onFaceMeshResults = useCallback((results: Results) => {
     const currentState = stateRef.current;
-    if (currentState !== 'idle' && currentState !== 'recording') return;
+    if (currentState === 'identity' || currentState === 'intro' || currentState === 'preview') return;
 
     const now = Date.now();
 
+    // No face detected
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       if (blinkStartRef.current === null) {
         blinkStartRef.current = now;
@@ -195,20 +231,16 @@ const Camera = () => {
         detectionWindowRef.current = [];
         gazeWindowRef.current = [];
         setBgState('red');
-
-        // Сброс отсчёта
-        if (countdown !== null) {
-          setCountdown(null);
-          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-        }
+        resetCountdown();
 
         if (currentState === 'recording' && recorderRef.current?.state === 'recording') {
-          stopRecordingDueToLoss();
+          recorderRef.current.stop();
         }
       }
       return;
     }
 
+    // Face detected
     blinkStartRef.current = null;
     lastDetectionRef.current = now;
 
@@ -224,86 +256,65 @@ const Camera = () => {
     const detectionStable = updateWindow(detectionWindowRef.current, detectionValid);
     const gazeStable = updateWindow(gazeWindowRef.current, gazeValid);
 
+    // Determine background state
     let newBgState: BackgroundState = 'red';
     if (detectionStable) {
       newBgState = gazeStable ? 'green' : 'orange';
     }
     setBgState(newBgState);
 
-    // Логика отсчёта и старта записи
+    // Logic for idle state: wait for green gaze → start countdown
     if (currentState === 'idle') {
       if (newBgState === 'green') {
         if (countdown === null) {
           startCountdown();
         }
       } else {
-        if (countdown !== null) {
-          setCountdown(null);
-          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-        }
+        resetCountdown();
       }
     }
 
-    // Во время записи — только проверка наличия глаз
-    if (currentState === 'recording' && !detectionStable) {
-      stopRecordingDueToLoss();
+    // During recording: only check detection stability
+    if (currentState === 'recording') {
+      if (!detectionStable) {
+        // Eyes left frame → stop recording
+        if (recorderRef.current) {
+          recorderRef.current.stop();
+          recorderRef.current = null;
+        }
+        if (recordIntervalRef.current) {
+          clearInterval(recordIntervalRef.current);
+          recordIntervalRef.current = null;
+        }
+        chunksRef.current = [];
+        setState('idle');
+        setRecordTime(CONFIG.RECORD_SECONDS);
+        setIsRecording(false);
+        detectionWindowRef.current = [];
+        gazeWindowRef.current = [];
+        setBgState('red');
+      }
     }
-  }, [state, countdown]);
+  }, [calculateEyeData, calculateGaze, countdown]);
 
   const onFaceMeshResultsRef = useRef(onFaceMeshResults);
   useEffect(() => {
     onFaceMeshResultsRef.current = onFaceMeshResults;
   }, [onFaceMeshResults]);
 
-  const startCountdown = () => {
-    setCountdown(3);
-    countdownIntervalRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev === null) return null;
-        if (prev <= 1) {
-          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-          startRecording();
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const stopRecordingDueToLoss = () => {
-    if (recorderRef.current) {
-      recorderRef.current.stop();
-      recorderRef.current = null;
-    }
-    if (recordIntervalRef.current) {
-      clearInterval(recordIntervalRef.current);
-      recordIntervalRef.current = null;
-    }
-    chunksRef.current = [];
-    setState('idle');
-    setRecordTime(CONFIG.RECORD_SECONDS);
-    setIsRecording(false);
-    detectionWindowRef.current = [];
-    gazeWindowRef.current = [];
-    setBgState('red');
-  };
-
-  // Инициализация камеры только в состоянии idle
+  // Initialize camera ONLY when entering 'idle'
   useEffect(() => {
     if (state !== 'idle') {
-      // Очистка при выходе из idle
-      if (mediaPipeCameraRef.current) {
-        mediaPipeCameraRef.current.stop();
-        mediaPipeCameraRef.current = null;
-      }
-      if (faceMeshRef.current) {
-        faceMeshRef.current.close();
-        faceMeshRef.current = null;
-      }
+      // Cleanup if leaving idle
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
+      if (mediaPipeCameraRef.current) {
+        mediaPipeCameraRef.current.stop();
+        mediaPipeCameraRef.current = null;
+      }
+      faceMeshRef.current = null;
       return;
     }
 
@@ -316,8 +327,8 @@ const Camera = () => {
         streamRef.current = stream;
 
         const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities?.() as Record<string, unknown>;
-        if (capabilities && 'zoom' in capabilities) {
+        const capabilities = track.getCapabilities?.() as any;
+        if (capabilities?.zoom) {
           setSupportsHardwareZoom(true);
         }
 
@@ -337,10 +348,7 @@ const Camera = () => {
           minTrackingConfidence: 0.5,
         });
 
-        faceMesh.onResults((results) => {
-          onFaceMeshResultsRef.current(results);
-        });
-
+        faceMesh.onResults((results) => onFaceMeshResultsRef.current(results));
         faceMeshRef.current = faceMesh;
 
         const mpCamera = new MediaPipeCamera(videoRef.current!, {
@@ -356,7 +364,7 @@ const Camera = () => {
         mpCamera.start();
         mediaPipeCameraRef.current = mpCamera;
       } catch (err) {
-        console.error('Camera error:', err);
+        console.error('Camera initialization error:', err);
       }
     };
 
@@ -369,13 +377,21 @@ const Camera = () => {
       if (mediaPipeCameraRef.current) {
         mediaPipeCameraRef.current.stop();
       }
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
+      resetCountdown();
     };
   }, [state]);
 
+  // Apply zoom
+  useEffect(() => {
+    if (supportsHardwareZoom && streamRef.current) {
+      const track = streamRef.current.getVideoTracks()[0];
+      track.applyConstraints({ advanced: [{ zoom }] } as any).catch(() => {});
+    }
+  }, [zoom, supportsHardwareZoom]);
+
   const startRecording = useCallback(() => {
-    if (stateRef.current !== 'idle') return;
+    if (stateRef.current !== 'idle' && stateRef.current !== 'idle') return;
 
     setState('recording');
     setRecordTime(CONFIG.RECORD_SECONDS);
@@ -393,7 +409,6 @@ const Camera = () => {
 
     const drawFrame = () => {
       if (!videoRef.current || !isActive) return;
-
       ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
       ctx.save();
       ctx.translate(CONFIG.FRAME_WIDTH, 0);
@@ -460,14 +475,14 @@ const Camera = () => {
         count--;
         setRecordTime(count);
         if (count <= 0) {
-          if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
+          clearInterval(recordIntervalRef.current!);
+          recordIntervalRef.current = null;
           recorder.stop();
         }
       }
     }, 100);
   }, [zoom, supportsHardwareZoom]);
 
-  // Остальные функции без изменений
   const resetRecording = () => {
     setState('idle');
     setRecordedBlob(null);
@@ -478,7 +493,7 @@ const Camera = () => {
     gazeWindowRef.current = [];
     setBgState('red');
     setIsRecording(false);
-    setCountdown(null);
+    resetCountdown();
     if (previewRef.current) previewRef.current.src = '';
   };
 
@@ -486,44 +501,28 @@ const Camera = () => {
     if (!recordedBlob || !consentAccepted) return;
     setIsSaving(true);
     try {
-      // 1. Генерируем уникальное имя файла
       const fileId = crypto.randomUUID();
       const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.webm`;
-      // 2. Прямая загрузка в Storage
+
       const { error: uploadError } = await supabase.storage
         .from('eyes')
         .upload(fileName, recordedBlob, {
           contentType: 'video/webm',
           upsert: false,
         });
+
       if (uploadError) throw uploadError;
-      // 3. Добавляем запись в таблицу eyes (чтобы Canvas увидел)
-      const { error: eyesError } = await supabase
-        .from('eyes')
-        .insert({ cid: fileName });
-      if (eyesError) {
-        console.warn('Не удалось добавить в таблицу eyes, но видео загружено:', eyesError);
-        // Не прерываем — главное, что видео в storage
-      }
-      // 4. Генерируем уникальный одноразовый токен для удаления
+
+      await supabase.from('eyes').insert({ cid: fileName });
+
       const deleteToken = crypto.randomUUID();
-      const { error: tokenError } = await supabase
-        .from('delete_tokens')
-        .insert({
-          cid: fileName,
-          delete_token: deleteToken,
-        });
-      if (tokenError) {
-        console.warn('Не удалось создать токен удаления:', tokenError);
-        // Продолжаем — пользователь всё равно увидит видео
-      }
-      // 5. Формируем ссылку для удаления
-      const siteUrl = window.location.origin; // например https://vechnoe.netlify.app
-      const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
-      // 6. Показываем пользователю ссылку
+      await supabase.from('delete_tokens').insert({
+        cid: fileName,
+        delete_token: deleteToken,
+      });
+
+      const deleteUrl = `${window.location.origin}/delete?token=${deleteToken}`;
       setDeleteUrl(deleteUrl);
-      // Опционально: сброс формы или переход на canvas
-      // resetRecording(); // если хочешь сбросить камеру сразу
     } catch (err: any) {
       console.error('Save error:', err);
       alert('Ошибка сохранения: ' + err.message);
@@ -546,15 +545,10 @@ const Camera = () => {
     setZoom(prev => Math.max(CONFIG.ZOOM_MIN, Math.min(CONFIG.ZOOM_MAX, prev + delta)));
   };
 
-  useEffect(() => {
-    if (supportsHardwareZoom && streamRef.current) {
-      const track = streamRef.current.getVideoTracks()[0];
-      // @ts-expect-error - zoom is valid but not in TS types
-      track.applyConstraints({ advanced: [{ zoom }] }).catch(() => {});
-    }
-  }, [zoom, supportsHardwareZoom]);
+  const goToIntro = () => setState('intro');
+  const goToIdle = () => setState('idle');
 
-  // Экраны
+  // Identity screen
   if (state === 'identity') {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
@@ -568,7 +562,7 @@ const Camera = () => {
             {t('camera.identity')}
           </p>
           <button
-            onClick={() => setState('intro')}
+            onClick={goToIntro}
             className="px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
           >
             {t('camera.confirm')}
@@ -581,22 +575,20 @@ const Camera = () => {
     );
   }
 
+  // Intro screen
   if (state === 'intro') {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-8 font-mono">
-        <div className="max-w-2xl text-center">
-          <h1 className="text-2xl font-bold mb-8">{t('camera.introTitle') || 'Как будет происходить запись'}</h1>
-          <div className="text-left space-y-4 text-white/80 text-base leading-relaxed max-w-lg mx-auto">
-            <p>{t('camera.introText1') || 'Камера включится автоматически после нажатия кнопки ниже.'}</p>
-            <p>{t('camera.introText2') || 'Когда вы посмотрите прямо в камеру и рамка станет зелёной — начнётся 3-секундный отсчёт.'}</p>
-            <p>{t('camera.introText3') || 'После отсчёта запись начнётся автоматически и продлится 5 секунд.'}</p>
-            <p>{t('camera.introText4') || 'Запись остановится, если глаза выйдут из кадра.'}</p>
-          </div>
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
+        <div className="max-w-lg text-center space-y-8">
+          <h1 className="text-2xl font-bold uppercase tracking-wider">{t('camera.introTitle') || 'Как это работает'}</h1>
+          <p className="text-white/80 text-sm leading-relaxed">
+            {t('camera.introText') || 'Камера автоматически начнёт запись, когда вы посмотрите прямо в неё и ваши глаза будут в правильной зоне. Перед записью будет 3-секундный отсчёт. Запись длится 5 секунд и останавливается, если глаза выйдут из кадра.'}
+          </p>
           <button
-            onClick={() => setState('idle')}
-            className="mt-12 px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
+            onClick={goToIdle}
+            className="px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
           >
-            {t('camera.startRecording') || 'Перейти к съёмке'}
+            {t('camera.startFilming') || 'Перейти к съёмке'}
           </button>
           <button
             onClick={() => setState('identity')}
@@ -609,13 +601,14 @@ const Camera = () => {
     );
   }
 
+  // Main camera interface
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center relative font-mono">
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
         <ArrowLeft size={24} />
       </Link>
 
-      {/* Индикатор записи */}
+      {/* Recording indicator */}
       {state === 'recording' && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-600 animate-pulse' : 'bg-yellow-500'}`} />
@@ -626,6 +619,7 @@ const Camera = () => {
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center px-4 w-full max-w-2xl pt-20">
+        {/* Video frame */}
         <div className="relative mb-8">
           <div
             className="relative overflow-hidden rounded-xl"
@@ -636,24 +630,23 @@ const Camera = () => {
                 ? 'inset 0 0 0 3px rgba(34, 197, 94, 0.6)'
                 : bgState === 'orange'
                 ? 'inset 0 0 0 3px rgba(249, 115, 22, 0.6)'
-                : 'inset 0 0 0 3px rgba(239, 68, 68, 0.6)'
+                : 'inset 0 0 0 3px rgba(239, 68, 68, 0.6)',
             }}
           >
-                        {/* Живое видео — показываем только в idle и во время отсчёта */}
+            {/* Background is always black */}
+            <div className="absolute inset-0 bg-black" />
+
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className={`absolute top-1/2 left-1/2 min-w-full min-h-full object-cover ${
-                state === 'recording' || state === 'preview' ? 'hidden' : ''
-              }`}
+              className={`absolute top-1/2 left-1/2 min-w-full min-h-full object-cover ${state === 'preview' ? 'hidden' : ''}`}
               style={{
                 transform: `translate(-50%, -50%) scaleX(-1) scale(${supportsHardwareZoom ? 1 : zoom})`,
               }}
             />
 
-            {/* Превью записанного видео */}
             <video
               ref={previewRef}
               playsInline
@@ -662,75 +655,75 @@ const Camera = () => {
               className={`w-full h-full object-cover ${state !== 'preview' ? 'hidden' : ''}`}
             />
 
-            {/* Чёрный фон во время записи — чтобы не отвлекать и избежать артефактов */}
-            {state === 'recording' && (
-              <div className="absolute inset-0 bg-black" />
-            )}
-
-            {/* Гиды глаз и углы */}
-            {(state === 'idle' || state === 'recording') && (
+            {/* Eye guides and countdown */}
+            {state !== 'preview' && (
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
                 <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10" />
+
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 left-[15%] w-[30%] h-[60%] border border-dashed rounded-full opacity-40"
+                  className="absolute top-1/2 -translate-y-1/2 left-[15%] w-[30%] h-[60%] border border-dashed rounded-full transition-colors duration-300"
                   style={{
-                    borderColor: bgState === 'green' ? '#22c55e' : bgState === 'orange' ? '#f97316' : '#ef4444'
+                    borderColor: bgState === 'green' ? 'rgba(34, 197, 94, 0.4)'
+                              : bgState === 'orange' ? 'rgba(249, 115, 22, 0.3)'
+                              : 'rgba(239, 68, 68, 0.3)',
                   }}
                 />
                 <div
-                  className="absolute top-1/2 -translate-y-1/2 right-[15%] w-[30%] h-[60%] border border-dashed rounded-full opacity-40"
+                  className="absolute top-1/2 -translate-y-1/2 right-[15%] w-[30%] h-[60%] border border-dashed rounded-full transition-colors duration-300"
                   style={{
-                    borderColor: bgState === 'green' ? '#22c55e' : bgState === 'orange' ? '#f97316' : '#ef4444'
+                    borderColor: bgState === 'green' ? 'rgba(34, 197, 94, 0.4)'
+                              : bgState === 'orange' ? 'rgba(249, 115, 22, 0.3)'
+                              : 'rgba(239, 68, 68, 0.3)',
                   }}
                 />
+
                 <div className="absolute top-2 left-2 w-3 h-3 border-l border-t border-white/30" />
                 <div className="absolute top-2 right-2 w-3 h-3 border-r border-t border-white/30" />
                 <div className="absolute bottom-2 left-2 w-3 h-3 border-l border-b border-white/30" />
                 <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-white/30" />
-              </div>
-            )}
 
-            {/* Обратный отсчёт */}
-            {countdown !== null && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="text-8xl font-bold text-white drop-shadow-2xl">
-                  {countdown}
-                </div>
+                {/* Countdown number */}
+                {countdown !== null && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-9xl font-bold text-white drop-shadow-2xl">
+                      {countdown}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Статус под рамкой */}
-          <div className="mt-3 text-center">
-            <p className={`text-xs ${
-              state === 'recording' && isRecording
-                ? 'text-green-400'
-                : bgState === 'green' ? 'text-green-400'
-                : bgState === 'orange' ? 'text-orange-400'
-                : 'text-red-400'
+          {/* Status text below frame */}
+          <div className="mt-4 text-center">
+            <p className={`text-sm font-medium ${
+              state === 'recording' && isRecording ? 'text-green-400'
+              : bgState === 'green' ? 'text-green-400'
+              : bgState === 'orange' ? 'text-orange-400'
+              : 'text-red-400'
             }`}>
               {state === 'recording' && isRecording
                 ? t('camera.statusRecording')
                 : bgState === 'green'
-                ? t('camera.statusGreen')
+                ? t('camera.statusGreen') || 'Глаза в кадре и смотрят в камеру'
                 : bgState === 'orange'
-                ? t('camera.statusOrange')
-                : t('camera.statusRed')
+                ? t('camera.statusOrange') || 'Смотрите прямо в камеру'
+                : t('camera.statusRed') || 'Поместите глаза в рамки'
               }
             </p>
           </div>
         </div>
 
-        {/* Таймер записи */}
+        {/* Timer during recording */}
         {state === 'recording' && (
           <div className={`text-8xl md:text-9xl font-bold mb-8 tabular-nums ${isRecording ? 'text-white' : 'text-white/30'}`}>
             {recordTime}
           </div>
         )}
 
-        {/* Зум */}
-        {(state === 'idle' || state === 'recording') && !supportsHardwareZoom && (
+        {/* Zoom controls */}
+        {state === 'idle' && !supportsHardwareZoom && (
           <div className="flex items-center gap-4 mb-6">
             <button onClick={() => adjustZoom(-CONFIG.ZOOM_STEP)} className="w-10 h-10 border border-white/20 rounded flex items-center justify-center hover:bg-white/10">
               <Minus size={16} />
@@ -745,7 +738,6 @@ const Camera = () => {
         {/* Preview actions */}
         {state === 'preview' && !deleteUrl && (
           <div className="flex flex-col gap-4 w-full max-w-xs">
-            {/* Consent checkbox */}
             <div className="border border-white/10 p-4 mb-2">
               <div className="flex items-start gap-3">
                 <input
@@ -757,36 +749,36 @@ const Camera = () => {
                 />
                 <label htmlFor="consent-save" className="text-white/60 text-xs cursor-pointer">
                   {t('camera.consent')}
-                  <button
-                    onClick={() => setShowConsent(true)}
-                    className="block text-white/40 underline hover:text-white/60 transition-colors mt-1"
-                  >
+                  <button onClick={() => setShowConsent(true)} className="block text-white/40 underline hover:text-white/60 mt-1">
                     {t('camera.viewConsent')}
                   </button>
                 </label>
               </div>
             </div>
+
             <button
               onClick={saveForever}
               disabled={isSaving || !consentAccepted}
-              className="w-full px-8 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-8 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 disabled:opacity-50"
             >
               {t('camera.save')}
             </button>
+
             <button
               onClick={resetRecording}
               disabled={isSaving}
-              className="w-full px-8 py-3 border border-white/30 text-white/60 text-sm uppercase tracking-widest hover:bg-white/10 transition-colors disabled:opacity-50"
+              className="w-full px-8 py-3 border border-white/30 text-white/60 text-sm uppercase tracking-widest hover:bg-white/10"
             >
               {t('camera.retake')}
             </button>
+
             <button
               onClick={downloadVideo}
-              className="w-full px-8 py-3 border border-white/20 text-white/40 text-xs uppercase tracking-widest hover:bg-white/5 transition-colors"
+              className="w-full px-8 py-3 border border-white/20 text-white/40 text-xs uppercase tracking-widest hover:bg-white/5"
             >
               {t('camera.download')}
             </button>
-            {/* Support info */}
+
             <div className="mt-4 pt-4 border-t border-white/10">
               <p className="text-yellow-500/60 text-xs mb-2">{t('support.trigger')}</p>
               <p className="text-white/30 text-xs">{t('support.hotlines')}</p>
@@ -794,17 +786,16 @@ const Camera = () => {
             </div>
           </div>
         )}
-        {/* Delete URL display */}
+
+        {/* Delete link after save */}
         {deleteUrl && (
           <div className="text-center max-w-sm">
             <div className="text-green-500 mb-4 text-2xl">✓</div>
             <p className="text-white/60 text-xs mb-2">{t('camera.deleteLink')}</p>
-            <code className="block bg-white/5 p-3 text-xs break-all text-white/60 mb-6">
-              {deleteUrl}
-            </code>
+            <code className="block bg-white/5 p-3 text-xs break-all text-white/60 mb-6">{deleteUrl}</code>
             <Link
               to="/canvas"
-              className="inline-block px-8 py-3 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
+              className="inline-block px-8 py-3 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90"
             >
               {t('camera.viewCanvas')}
             </Link>
