@@ -138,7 +138,6 @@ const Camera = () => {
     if (!landmarks || landmarks.length < 478) {
       return { leftEye: null, rightEye: null, bothInFrame: false, hasValidSize: false };
     }
-
     const getEyeBounds = (indices: number[]) => {
       const points = indices.map(i => landmarks[i]);
       const xs = points.map(p => p.x);
@@ -159,6 +158,7 @@ const Camera = () => {
     const rightBounds = getEyeBounds(RIGHT_EYE_INDICES);
 
     const margin = CONFIG.FRAME_MARGIN;
+
     const leftInFrame =
       leftBounds.minX > margin && leftBounds.maxX < (1 - margin) &&
       leftBounds.minY > margin && leftBounds.maxY < (1 - margin);
@@ -188,10 +188,11 @@ const Camera = () => {
   // Process FaceMesh results
   const onFaceMeshResults = useCallback((results: Results) => {
     const currentState = stateRef.current;
-    if (currentState !== 'idle' && currentState !== 'recording') return;
+    if (currentState === 'identity' || currentState === 'intro' || currentState === 'preview') return;
 
     const now = Date.now();
 
+    // No face detected
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       if (blinkStartRef.current === null) {
         blinkStartRef.current = now;
@@ -208,6 +209,7 @@ const Camera = () => {
       return;
     }
 
+    // Face detected - reset blink timer
     blinkStartRef.current = null;
     lastDetectionRef.current = now;
 
@@ -223,6 +225,7 @@ const Camera = () => {
     const detectionStable = updateWindow(detectionWindowRef.current, detectionValid);
     const gazeStable = updateWindow(gazeWindowRef.current, gazeValid);
 
+    // Determine background state
     let newBgState: BackgroundState;
     if (!detectionStable) {
       newBgState = 'red';
@@ -234,23 +237,26 @@ const Camera = () => {
 
     setBgState(newBgState);
 
+    // Auto recording logic
     if (currentState === 'idle' && newBgState === 'green') {
       startRecording();
-    } else if (currentState === 'recording' && !detectionStable) {
-      if (recorderRef.current) {
-        recorderRef.current.stop();
-        recorderRef.current = null;
+    } else if (currentState === 'recording') {
+      if (!detectionStable) {
+        if (recorderRef.current) {
+          recorderRef.current.stop();
+          recorderRef.current = null;
+        }
+        if (recordIntervalRef.current) {
+          clearInterval(recordIntervalRef.current);
+          recordIntervalRef.current = null;
+        }
+        chunksRef.current = [];
+        setState('idle');
+        setRecordTime(CONFIG.RECORD_SECONDS);
+        setIsRecording(false);
+        detectionWindowRef.current = [];
+        gazeWindowRef.current = [];
       }
-      if (recordIntervalRef.current) {
-        clearInterval(recordIntervalRef.current);
-        recordIntervalRef.current = null;
-      }
-      chunksRef.current = [];
-      setState('idle');
-      setRecordTime(CONFIG.RECORD_SECONDS);
-      setIsRecording(false);
-      detectionWindowRef.current = [];
-      gazeWindowRef.current = [];
     }
   }, [calculateEyeData, calculateGaze]);
 
@@ -259,10 +265,10 @@ const Camera = () => {
     onFaceMeshResultsRef.current = onFaceMeshResults;
   }, [onFaceMeshResults]);
 
-  // Initialize camera — только когда переходим в 'idle'
+  // Initialize camera — только после перехода в idle/recording/preview
   useEffect(() => {
-    if (state !== 'idle') {
-      // Очистка при выходе из idle/recording/preview
+    if (state === 'identity' || state === 'intro') {
+      // Очищаем камеру, если возвращаемся назад
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
@@ -334,7 +340,7 @@ const Camera = () => {
       }
       if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
     };
-  }, [state]); // зависимость только от state
+  }, [state === 'idle' || state === 'recording' || state === 'preview']);
 
   useEffect(() => {
     if (supportsHardwareZoom && streamRef.current) {
@@ -386,6 +392,7 @@ const Camera = () => {
         requestAnimationFrame(drawFrame);
       }
     };
+
     drawFrame();
 
     const canvasStream = canvas.captureStream(CONFIG.FPS);
@@ -397,6 +404,7 @@ const Camera = () => {
       mimeType,
       videoBitsPerSecond: CONFIG.BITRATE
     });
+
     recorderRef.current = recorder;
 
     recorder.ondataavailable = (e) => {
@@ -469,11 +477,13 @@ const Camera = () => {
           contentType: 'video/webm',
           upsert: false,
         });
+
       if (uploadError) throw uploadError;
 
       const { error: eyesError } = await supabase
         .from('eyes')
         .insert({ cid: fileName });
+
       if (eyesError) {
         console.warn('Не удалось добавить в таблицу eyes, но видео загружено:', eyesError);
       }
@@ -485,6 +495,7 @@ const Camera = () => {
           cid: fileName,
           delete_token: deleteToken,
         });
+
       if (tokenError) {
         console.warn('Не удалось создать токен удаления:', tokenError);
       }
@@ -518,8 +529,12 @@ const Camera = () => {
     setState('intro');
   };
 
-  const startShooting = () => {
+  const goToRecording = () => {
     setState('idle');
+  };
+
+  const goBackToIdentity = () => {
+    setState('identity');
   };
 
   // Экран подтверждения идентичности
@@ -553,52 +568,35 @@ const Camera = () => {
     );
   }
 
-  // Экран инструкции перед съёмкой
+  // Новый экран с инструкцией
   if (state === 'intro') {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
-        <div className="max-w-2xl text-center">
-          <h2 className="text-2xl mb-8">{t('camera.instructionTitle') || 'Как правильно снять видео'}</h2>
+        <div className="max-w-lg text-center">
+          <h2 className="text-2xl mb-8 text-white/90">{t('camera.instructionTitle') || 'Инструкция по съёмке'}</h2>
 
-          <div className="space-y-6 text-left max-w-lg mx-auto">
-            <p className="text-white/80 text-sm">
-              Поместите глаза в центр кадра. Видео начнётся автоматически, когда вы будете смотреть прямо в камеру.
-            </p>
-
-            <ul className="text-white/60 text-sm space-y-3">
-              <li className="flex items-center gap-3">
-                <span className="w-4 h-4 border border-white/40 rounded-sm flex-shrink-0"></span>
-                Белая рамка — ориентир для глаз
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="w-4 h-4 bg-red-600/60 rounded-sm flex-shrink-0"></span>
-                Красный — глаза вне зоны или не обнаружены
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="w-4 h-4 bg-yellow-500/60 rounded-sm flex-shrink-0"></span>
-                Жёлтый — глаза в кадре, но взгляд не прямой
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="w-4 h-4 bg-green-500/60 rounded-sm flex-shrink-0"></span>
-                Зелёный — всё идеально, запись началась
-              </li>
+          <div className="text-left text-white/70 text-sm space-y-4 mb-10">
+            <p>Видео длится ровно 5 секунд и записывается автоматически, как только система увидит ваши глаза в кадре и прямой взгляд в камеру.</p>
+            <p>Для лучшего результата:</p>
+            <ul className="list-disc list-inside space-y-2 text-white/60">
+              <li>Обеспечьте хорошее равномерное освещение лица</li>
+              <li>Расположите глаза в обозначенных зонах кадра</li>
+              <li>Смотрите прямо в камеру</li>
+              <li>Держите голову неподвижно во время записи</li>
             </ul>
-
-            <p className="text-white/60 text-xs mt-8">
-              Запись длится 5 секунд. После завершения вы сможете сохранить видео навсегда.
-            </p>
+            <p className="mt-4">После записи вы сможете просмотреть видео, скачать его или сохранить навсегда.</p>
           </div>
 
           <button
-            onClick={startShooting}
-            className="mt-12 px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
+            onClick={goToRecording}
+            className="px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
           >
             Перейти к съёмке
           </button>
 
           <button
-            onClick={() => setState('identity')}
-            className="block mt-6 text-white/30 text-xs hover:text-white/60 transition-colors"
+            onClick={goBackToIdentity}
+            className="block mt-8 text-white/30 text-xs hover:text-white/60 transition-colors"
           >
             ← Назад
           </button>
@@ -607,7 +605,7 @@ const Camera = () => {
     );
   }
 
-  // Основной экран с камерой
+  // Основной интерфейс записи
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center relative font-mono">
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
@@ -653,6 +651,7 @@ const Camera = () => {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 w-full max-w-2xl pt-20">
+
         {/* Video frame */}
         <div className="relative mb-8">
           <div
