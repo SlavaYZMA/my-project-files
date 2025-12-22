@@ -614,13 +614,32 @@ const Camera = () => {
 
       {/* Recording indicator */}
       {state === 'recording' && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
-          <div className={`w-3 h-3 rounded-full ${
-            isRecording ? 'bg-red-600 animate-pulse' : 'bg-yellow-500'
-          }`} />
-          <span className="text-xs text-white/60 tracking-widest">
-            {isRecording ? t('camera.recording') : (prepTimer !== null ? (language === 'ru' ? 'ПРИГОТОВЬТЕСЬ' : 'GET READY') : t('camera.paused'))}
-          </span>
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 w-full max-w-xs text-center">
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${
+              isRecording ? 'bg-red-600 animate-pulse' : 'bg-yellow-500'
+            }`} />
+            <span className="text-xs text-white/60 tracking-widest uppercase">
+              {isRecording 
+                ? t('camera.recording') 
+                : (prepTimer !== null 
+                    ? (language === 'ru' ? 'ПРИГОТОВЬТЕСЬ' : 'GET READY') 
+                    : t('camera.paused'))
+              }
+            </span>
+          </div>
+          
+          {/* Дополнительный текст во время подготовки */}
+          {!isRecording && prepTimer !== null && (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] text-white/40 leading-tight">
+                {language === 'ru' ? 'Смотрите в камеру, пожалуйста' : 'Please look into the camera'}
+              </span>
+              <span className="text-[10px] text-white/40 leading-tight">
+                {language === 'ru' ? 'Запись начнется автоматически' : 'Recording will start automatically'}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
