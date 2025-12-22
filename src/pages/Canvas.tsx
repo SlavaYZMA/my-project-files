@@ -109,8 +109,8 @@ const Canvas = () => {
 
   if (loading && eyes.length === 0) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center font-mono">
-        <p className="text-white/30 text-sm tracking-widest">
+      <div className="min-h-screen bg-black flex items-center justify-center font-mono text-white">
+        <p className="text-white/30 text-sm tracking-widest uppercase">
           {t('canvas.loading')}
         </p>
       </div>
@@ -119,7 +119,7 @@ const Canvas = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center font-mono">
+      <div className="min-h-screen bg-black flex items-center justify-center font-mono text-white">
         <p className="text-red-500/60 text-sm tracking-widest uppercase">Ошибка загрузки</p>
       </div>
     );
@@ -144,12 +144,11 @@ const Canvas = () => {
         </div>
       ) : (
         <main className="max-w-[1400px] mx-auto">
-          {/* Сетка: 4 колонки на больших экранах, без отступов (gap-0) */}
+          {/* Сетка: 2 колонки на мобильных, 4 на десктопах, без зазоров (gap-0) */}
           <div
             className="
               grid
-              grid-cols-1
-              sm:grid-cols-2
+              grid-cols-2
               md:grid-cols-4
               gap-0
             "
@@ -158,7 +157,7 @@ const Canvas = () => {
             {eyes.map((eye) => (
               <div
                 key={eye.cid}
-                className="relative w-full aspect-[4/1] overflow-hidden bg-black"
+                className="relative w-full aspect-[4/1] overflow-hidden bg-black border-none"
               >
                 <video
                   src={`${storageUrl}${eye.cid}`}
