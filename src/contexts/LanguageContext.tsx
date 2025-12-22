@@ -91,6 +91,8 @@ export const translations: Translations = {
   'canvas.loading': { ru: 'ЗАГРУЗКА...', en: 'LOADING...' },
   'canvas.empty': { ru: 'НЕТ ЗАПИСЕЙ', en: 'NO RECORDINGS' },
   'canvas.admin': { ru: 'АДМИН', en: 'ADMIN' },
+  'canvas.refresh': { ru: 'ОБНОВИТЬ', en: 'REFRESH' },
+  'canvas.addFirst': { ru: 'ДОБАВИТЬ ПЕРВУЮ ЗАПИСЬ', en: 'ADD FIRST RECORDING' },
   
   // About modal
   'about.title': { ru: 'О ПРОЕКТЕ', en: 'ABOUT' },

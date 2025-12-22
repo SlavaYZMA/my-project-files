@@ -402,8 +402,47 @@ const Camera = () => {
     onFaceMeshResultsRef.current = onFaceMeshResults;
   }, [onFaceMeshResults]);
 
+  // Постоянная отрисовка canvas для превью
+  const drawPreviewFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState < 2) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const vW = video.videoWidth;
+    const vH = video.videoHeight;
+    if (vW === 0 || vH === 0) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== CONFIG.FRAME_WIDTH * dpr) {
+      canvas.width = CONFIG.FRAME_WIDTH * dpr;
+      canvas.height = CONFIG.FRAME_HEIGHT * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    
+    const effZoom = supportsHardwareZoomRef.current ? 1 : zoomRef.current;
+    const scW = vW / effZoom;
+    const scH = vH / effZoom;
+    const sc = Math.max(CONFIG.FRAME_WIDTH / scW, CONFIG.FRAME_HEIGHT / scH);
+    const sw = Math.round(CONFIG.FRAME_WIDTH / sc);
+    const sh = Math.round(CONFIG.FRAME_HEIGHT / sc);
+    const sx = Math.round((vW - sw) / 2);
+    const sy = Math.round((vH - sh) / 2);
+    
+    ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+    ctx.save();
+    ctx.translate(CONFIG.FRAME_WIDTH, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+    ctx.restore();
+  }, []);
+
+  const previewAnimationRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (state === 'identity') return;
+    if (state === 'identity' || state === 'preview') return;
 
     const initCamera = async () => {
       try {
@@ -422,6 +461,13 @@ const Camera = () => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
+          
+          // Запускаем постоянную отрисовку превью
+          const animatePreview = () => {
+            drawPreviewFrame();
+            previewAnimationRef.current = requestAnimationFrame(animatePreview);
+          };
+          animatePreview();
         }
 
         const faceMesh = new FaceMesh({
@@ -462,6 +508,10 @@ const Camera = () => {
     initCamera();
 
     return () => {
+      if (previewAnimationRef.current) {
+        cancelAnimationFrame(previewAnimationRef.current);
+        previewAnimationRef.current = null;
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -471,7 +521,7 @@ const Camera = () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [state === 'identity']);
+  }, [state, drawPreviewFrame]);
 
   useEffect(() => {
     if (supportsHardwareZoom && streamRef.current) {
