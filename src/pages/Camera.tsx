@@ -524,6 +524,7 @@ const Camera = () => {
     setState('idle');
   };
 
+  // Identity confirmation screen
   if (state === 'identity') {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6 font-mono">
@@ -534,24 +535,25 @@ const Camera = () => {
             </div>
           </div>
           
-          <div className="mb-8 bg-white/5 p-6 rounded-lg border border-white/10 text-left">
-            <h3 className="text-white font-bold text-sm uppercase tracking-widest mb-4">
+          {/* Инструкция: сделана компактнее и спокойнее */}
+          <div className="mb-10 bg-white/5 p-6 rounded-lg border border-white/10 text-left opacity-80">
+            <h3 className="text-white/90 font-bold text-xs uppercase tracking-widest mb-4">
               {language === 'ru' ? 'Как записывать видео:' : 'How to record video:'}
             </h3>
-            <ul className="space-y-3 text-white/70 text-xs leading-relaxed">
+            <ul className="space-y-3 text-white/60 text-[11px] leading-relaxed">
               <li>• {language === 'ru' ? 'Сядьте перед камерой, только ваши глаза должны быть в рамке.' : 'Sit in front of the camera, only your eyes should be in the frame.'}</li>
               <li>• {language === 'ru' ? 'Следите за надписью снизу:' : 'Follow the status text below:'}
                 <ul className="ml-4 mt-2 space-y-1">
                   <li className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-red-600 rounded-full" /> 
+                    <span className="w-1.5 h-1.5 bg-red-600 rounded-full" /> 
                     {language === 'ru' ? 'Красный – лицо/глаза не в кадре.' : 'Red – face/eyes not in frame.'}
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-yellow-500 rounded-full" /> 
+                    <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full" /> 
                     {language === 'ru' ? 'Жёлтый – глаза в кадре, взгляд не прямо.' : 'Yellow – eyes in frame, not looking straight.'}
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-green-500 rounded-full" /> 
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full" /> 
                     {language === 'ru' ? 'Зелёный – можно записывать.' : 'Green – ready to record.'}
                   </li>
                 </ul>
@@ -563,13 +565,18 @@ const Camera = () => {
             </ul>
           </div>
 
-          <p className="text-white/70 text-sm leading-relaxed mb-8">
-            {t('camera.identity')}
-          </p>
+          {/* Главная фраза: Увеличена и выделена */}
+          <div className="mb-10 px-4">
+            <p className="text-white text-lg md:text-xl font-medium leading-relaxed tracking-tight">
+              {language === 'ru' 
+                ? 'Я подтверждаю, что идентифицирую себя как женщина, пережившая гендерное насилие.' 
+                : 'I confirm that I identify as a woman who has experienced gender-based violence.'}
+            </p>
+          </div>
 
           <button
             onClick={confirmIdentity}
-            className="px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-colors"
+            className="px-12 py-4 bg-white text-black text-sm font-bold uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95"
           >
             {t('camera.confirm')}
           </button>
