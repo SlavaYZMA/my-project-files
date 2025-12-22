@@ -13,7 +13,7 @@ const ADMIN_SECRET_KEY = 'gorgona_admin_secret';
 const ITEMS_PER_PAGE = 100;
 
 const Canvas = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
   const [eyes, setEyes] = useState<EyeRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ const Canvas = () => {
       const { data, error: queryError } = await supabase
         .from('eyes')
         .select('cid, created_at')
-        .order('created_at', { ascending: false }) // новые сверху
+        .order('created_at', { ascending: false })
         .range(from, to);
 
       if (queryError) throw queryError;
@@ -87,7 +87,6 @@ const Canvas = () => {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            // новое видео занимает верхнее место
             setEyes(prev => [payload.new as EyeRecord, ...prev]);
           } else if (payload.eventType === 'DELETE') {
             setEyes(prev =>
@@ -194,14 +193,14 @@ const Canvas = () => {
     <div className="min-h-screen bg-black font-mono">
       {/* Header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black via-black/80 to-transparent pointer-events-none">
-        <div className="flex items-center justify-between p-4 md:p-6 pointer-events-auto">
+        <div className="flex items-center justify-between p-4 md:p-6 pointer-events-auto max-w-[1400px] mx-auto">
           <Link to="/" className="text-white/40 hover:text-white transition-colors">
             <ArrowLeft size={24} />
           </Link>
 
           <div className="flex items-center gap-4">
             {isAdmin && (
-              <span className="text-red-500 text-xs font-bold tracking-widest">
+              <span className="text-red-500 text-[10px] font-bold tracking-widest uppercase">
                 {t('canvas.admin')}
               </span>
             )}
@@ -218,9 +217,7 @@ const Canvas = () => {
           <div className="bg-black/95 border-b border-white/10 p-4 pointer-events-auto">
             {isAdmin ? (
               <div className="text-center">
-                <p className="text-white/40 text-xs mb-3">
-                  Режим администратора активен
-                </p>
+                <p className="text-white/40 text-xs mb-3">Режим администратора активен</p>
                 <button
                   onClick={() => {
                     localStorage.removeItem(ADMIN_SECRET_KEY);
@@ -253,21 +250,23 @@ const Canvas = () => {
           </p>
         </div>
       ) : (
-        <>
-          {/* GRID */}
+        <main className="max-w-[1400px] mx-auto px-4 md:px-6">
+          {/* GRID: 1 на мобильных, 2 на планшетах, 4 на ноутах, 6 на больших экранах */}
           <div
             className="
               grid
               grid-cols-1
               sm:grid-cols-2
-              lg:grid-cols-4
+              md:grid-cols-4
+              xl:grid-cols-6
+              gap-1
             "
-            style={{ paddingTop: 80 }}
+            style={{ paddingTop: 100, paddingBottom: 40 }}
           >
             {eyes.map((eye) => (
               <div
                 key={eye.cid}
-                className="relative group w-full aspect-[4/1] overflow-hidden"
+                className="relative group w-full aspect-[4/1] overflow-hidden bg-white/[0.03] rounded-sm transition-transform duration-300"
               >
                 <video
                   src={`${storageUrl}${eye.cid}`}
@@ -278,18 +277,18 @@ const Canvas = () => {
                   className="w-full h-full object-cover block"
                 />
 
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors pointer-events-none" />
 
                 {isAdmin && (
                   <button
                     onClick={() => handleAdminDelete(eye.cid)}
                     disabled={deletingCid === eye.cid}
-                    className="absolute top-2 right-2 bg-black/80 hover:bg-red-600 text-white/60 hover:text-white p-2 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50"
+                    className="absolute top-1 right-1 bg-black/80 hover:bg-red-600 text-white/60 hover:text-white p-1.5 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50"
                   >
                     {deletingCid === eye.cid ? (
-                      <span className="text-xs">...</span>
+                      <span className="text-[8px] animate-pulse">...</span>
                     ) : (
-                      <Trash2 size={14} />
+                      <Trash2 size={12} />
                     )}
                   </button>
                 )}
@@ -302,12 +301,10 @@ const Canvas = () => {
               ref={loadMoreRef}
               className="h-32 flex items-center justify-center"
             >
-              <p className="text-white/20 text-xs tracking-widest">
-                {t('canvas.loading')}
-              </p>
+              <div className="w-4 h-4 border border-white/20 border-t-white/80 rounded-full animate-spin" />
             </div>
           )}
-        </>
+        </main>
       )}
     </div>
   );
