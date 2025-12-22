@@ -561,6 +561,28 @@ const Camera = () => {
             </div>
           </div>
           
+          {/* --- НАЧАЛО ДОБАВЛЕННОГО БЛОКА С ИНСТРУКЦИЕЙ --- */}
+          <div className="mb-8 bg-white/5 p-6 rounded-lg border border-white/10 text-left">
+            <h3 className="text-white font-bold text-xs uppercase tracking-widest mb-4">
+              {t('camera.instructionTitle')}
+            </h3>
+            <ul className="space-y-3">
+              <li className="flex items-center gap-3">
+                <span className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)] flex-shrink-0" />
+                <span className="text-white/60 text-xs">{t('camera.instructionRed')}</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="w-2 h-2 bg-yellow-500 rounded-full shadow-[0_0_10px_rgba(234,179,8,0.5)] flex-shrink-0" />
+                <span className="text-white/60 text-xs">{t('camera.instructionYellow')}</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)] flex-shrink-0" />
+                <span className="text-white/60 text-xs">{t('camera.instructionGreen')}</span>
+              </li>
+            </ul>
+          </div>
+          {/* --- КОНЕЦ ДОБАВЛЕННОГО БЛОКА --- */}
+
           <p className="text-white/70 text-sm leading-relaxed mb-8">
             {t('camera.identity')}
           </p>
