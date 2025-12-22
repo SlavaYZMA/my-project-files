@@ -410,25 +410,50 @@ const Camera = () => {
         }
 
         ctx.restore();
-
+// === Фикс для Android: принудительный flush кадра в stream ===
+        const track = canvasStream.getVideoTracks()[0];
+        if (track && track.requestFrame) {
+          track.requestFrame();
+        }
         if (isActive) requestAnimationFrame(drawFrame);
       };
 
       drawFrame();
 
-      const canvasStream = canvas.captureStream(CONFIG.FPS);
+            const canvasStream = canvas.captureStream(CONFIG.FPS);
       addLog(`captureStream created, FPS=${CONFIG.FPS}, tracks: ${canvasStream.getVideoTracks().length}`);
 
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? 'video/webm;codecs=vp9'
-        : 'video/webm';
-      addLog(`MediaRecorder mimeType: ${mimeType}, supported: ${MediaRecorder.isTypeSupported(mimeType)}`);
+      // === ИСПРАВЛЕНИЕ ДЛЯ ANDROID: приоритет VP8, на ПК — VP9 ===
+      let mimeType = 'video/webm';
 
-      const recorder = new MediaRecorder(canvasStream, {
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+        mimeType = 'video/webm;codecs=vp8';
+        addLog('Using VP8 codec (best for Android)');
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+        mimeType = 'video/webm;codecs=vp9';
+        addLog('Using VP9 codec (high quality, desktop)');
+      } else {
+        addLog('No specific codec supported, falling back to basic webm');
+      }
+
+      addLog(`Final mimeType: ${mimeType}`);
+
+      // === Дополнительно: не задаём высокий битрейт на мобильных (часто вызывает чёрный экран) ===
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const recorderOptions: MediaRecorderOptions = {
         mimeType,
-        videoBitsPerSecond: CONFIG.BITRATE
-      });
-      addLog(`MediaRecorder created, state=${recorder.state}`);
+      };
+
+      if (!isMobile) {
+        recorderOptions.videoBitsPerSecond = CONFIG.BITRATE;
+        addLog(`Setting bitrate ${CONFIG.BITRATE} bps (desktop only)`);
+      } else {
+        addLog('Skipping high bitrate on mobile for stability');
+      }
+
+      const recorder = new MediaRecorder(canvasStream, recorderOptions);
+      addLog(`MediaRecorder created, state=${recorder.state}, mimeType=${recorder.mimeType}`);
+      
 
       recorderRef.current = recorder;
       recorder.ondataavailable = (e) => {
