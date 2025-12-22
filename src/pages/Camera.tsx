@@ -65,7 +65,6 @@ const Camera = () => {
   const chunksRef = useRef<Blob[]>([]);
   const faceMeshRef = useRef<FaceMesh | null>(null);
   const mediaPipeCameraRef = useRef<MediaPipeCamera | null>(null);
-  const recordingTypeRef = useRef<string>('');
   
   // Sliding window for stability
   const detectionWindowRef = useRef<boolean[]>([]);
@@ -355,7 +354,7 @@ const Camera = () => {
     if (stateRef.current !== 'idle') return;
     
     setState('recording');
-    setIsRecording(false);
+    setIsRecording(false); // Not recording yet, just preparing
     
     let prepCount = 3;
     setPrepTimer(prepCount);
@@ -377,101 +376,71 @@ const Camera = () => {
       setIsRecording(true);
 
       const canvas = canvasRef.current!;
-      // alpha: false ускоряет работу на мобильных
-      const ctx = canvas.getContext('2d', { alpha: false })!; 
-      
-      canvas.width = CONFIG.FRAME_WIDTH;
-      canvas.height = CONFIG.FRAME_HEIGHT;
+      const ctx = canvas.getContext('2d')!;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = CONFIG.FRAME_WIDTH * dpr;
+      canvas.height = CONFIG.FRAME_HEIGHT * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       let isActive = true;
 
       const drawFrame = () => {
         if (!videoRef.current || !isActive) return;
-
-        // ВАЖНО ДЛЯ PIXEL: Если камера не готова, не рисуем черный кадр
-        if (videoRef.current.readyState < 2) {
-            requestAnimationFrame(drawFrame);
-            return;
-        }
-
         ctx.clearRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
         ctx.save();
-        
-        // Отражение по горизонтали
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
-        
         const videoW = videoRef.current.videoWidth || CONFIG.FRAME_WIDTH;
         const videoH = videoRef.current.videoHeight || CONFIG.FRAME_HEIGHT;
-        
-        // Масштабирование (cover)
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
         const scaledW = videoW / effectiveZoom;
         const scaledH = videoH / effectiveZoom;
-        
         const scale = Math.max(CONFIG.FRAME_WIDTH / scaledW, CONFIG.FRAME_HEIGHT / scaledH);
         const sw = Math.round(CONFIG.FRAME_WIDTH / scale);
         const sh = Math.round(CONFIG.FRAME_HEIGHT / scale);
         const sx = Math.round((videoW - sw) / 2);
         const sy = Math.round((videoH - sh) / 2);
-        
         ctx.drawImage(videoRef.current, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
         ctx.restore();
-        
         if (isActive) requestAnimationFrame(drawFrame);
       };
-      
       drawFrame();
 
       const canvasStream = canvas.captureStream(CONFIG.FPS);
-      
-      // Выбор формата: Pixel скорее всего выберет webm
-      const mimeType = getSupportedMimeType();
-      recordingTypeRef.current = mimeType; 
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : 'video/webm';
 
-      const options: MediaRecorderOptions = {
+      const recorder = new MediaRecorder(canvasStream, {
+        mimeType,
         videoBitsPerSecond: CONFIG.BITRATE
+      });
+      recorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data?.size) chunksRef.current.push(e.data);
       };
-      if (mimeType) options.mimeType = mimeType;
 
-      try {
-        const recorder = new MediaRecorder(canvasStream, options);
-        recorderRef.current = recorder;
-
-        recorder.ondataavailable = (e) => {
-          if (e.data?.size > 0) chunksRef.current.push(e.data);
-        };
-
-        recorder.onstop = () => {
-          isActive = false;
-          if (chunksRef.current.length > 0) {
-            // Создаем Blob строго с тем типом, который выбрал браузер
-            const finalType = recordingTypeRef.current || 'video/webm';
-            const blob = new Blob(chunksRef.current, { type: finalType });
-            setRecordedBlob(blob);
-            setState('preview');
-            
-            if (previewRef.current) {
-              previewRef.current.srcObject = null;
-              previewRef.current.src = URL.createObjectURL(blob);
-              previewRef.current.load(); // Важно для перезагрузки src
-              previewRef.current.play().catch(e => console.log('Auto-play blocked', e));
-            }
+      recorder.onstop = () => {
+        isActive = false;
+        if (chunksRef.current.length > 0) {
+          const blob = new Blob(chunksRef.current, { type: mimeType });
+          setRecordedBlob(blob);
+          setState('preview');
+          if (previewRef.current) {
+            previewRef.current.src = URL.createObjectURL(blob);
+            previewRef.current.play().catch(() => {});
           }
-        };
+        }
+      };
 
-        recorder.start(100);
-      } catch (err) {
-        console.error("Recorder error:", err);
-        setState('idle');
-      }
+      recorder.start(100);
 
-      // Таймер обратного отсчета
       let count = CONFIG.RECORD_SECONDS;
       let lastSecond = Date.now();
       
       recordIntervalRef.current = setInterval(() => {
-        if (stateRef.current === 'recording') {
+        if (stateRef.current === 'recording' && recorderRef.current?.state === 'recording') {
           const now = Date.now();
           if (now - lastSecond >= 1000) {
             lastSecond = now;
@@ -480,9 +449,7 @@ const Camera = () => {
             if (count <= 0) {
               if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
               recordIntervalRef.current = null;
-              if (recorderRef.current && recorderRef.current.state === 'recording') {
-                  recorderRef.current.stop();
-              }
+              if (recorder.state === 'recording') recorder.stop();
             }
           }
         }
@@ -491,79 +458,64 @@ const Camera = () => {
   }, [zoom, supportsHardwareZoom]);
 
   const resetRecording = () => {
-  setState('idle');
-  setRecordedBlob(null);
-  setDeleteUrl(null);
-  setRecordTime(CONFIG.RECORD_SECONDS);
-  setPrepTimer(null);
-  setConsentAccepted(false);
-  detectionWindowRef.current = [];
-  gazeWindowRef.current = [];
-  setBgState('red');
-  setIsRecording(false);
-  if (previewRef.current) {
-    previewRef.current.src = '';
-    previewRef.current.srcObject = null; // Очищаем поток
-  }
-};
+    setState('idle');
+    setRecordedBlob(null);
+    setDeleteUrl(null);
+    setRecordTime(CONFIG.RECORD_SECONDS);
+    setPrepTimer(null);
+    setConsentAccepted(false);
+    detectionWindowRef.current = [];
+    gazeWindowRef.current = [];
+    setBgState('red');
+    setIsRecording(false);
+    if (previewRef.current) {
+      previewRef.current.src = '';
+    }
+  };
 
   const saveForever = async () => {
-  if (!recordedBlob || !consentAccepted) return;
-  setIsSaving(true);
-  try {
-    // Определяем расширение на основе реального типа файла
-    const mimeType = recordingTypeRef.current || recordedBlob.type || 'video/webm';
-    const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
-    
-    const fileId = crypto.randomUUID();
-    const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.${extension}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from('eyes')
-      .upload(fileName, recordedBlob, {
-        contentType: mimeType, // Используем реальный тип
-        upsert: false,
+    if (!recordedBlob || !consentAccepted) return;
+    setIsSaving(true);
+    try {
+      const fileId = crypto.randomUUID();
+      const fileName = `eyes-${Date.now()}-${fileId.slice(0, 8)}.webm`;
+      const { error: uploadError } = await supabase.storage
+        .from('eyes')
+        .upload(fileName, recordedBlob, {
+          contentType: 'video/webm',
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      await supabase.from('eyes').insert({ cid: fileName });
+
+      const deleteToken = crypto.randomUUID();
+      await supabase.from('delete_tokens').insert({
+        cid: fileName,
+        delete_token: deleteToken,
       });
 
-    if (uploadError) throw uploadError;
-
-    await supabase.from('eyes').insert({ cid: fileName });
-
-    const deleteToken = crypto.randomUUID();
-    await supabase.from('delete_tokens').insert({
-      cid: fileName,
-      delete_token: deleteToken,
-    });
-
-    const siteUrl = window.location.origin;
-    const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
-    setDeleteUrl(deleteUrl);
-  } catch (err) {
-    console.error('Save error:', err);
-    alert('Ошибка сохранения: ' + err.message);
-  } finally {
-    setIsSaving(false);
-  }
-};
+      const siteUrl = window.location.origin;
+      const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
+      setDeleteUrl(deleteUrl);
+    } catch (err: any) {
+      console.error('Save error:', err);
+      alert('Ошибка сохранения: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const downloadVideo = () => {
-  if (!recordedBlob) return;
-  
-  const mimeType = recordingTypeRef.current || recordedBlob.type || 'video/webm';
-  const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
-  
-  const url = URL.createObjectURL(recordedBlob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `eye-recording-${Date.now()}.${extension}`;
-  
-  // Для мобильных браузеров лучше добавить элемент в DOM перед кликом
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(url);
-};
+    if (!recordedBlob) return;
+    const url = URL.createObjectURL(recordedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eye-recording-${Date.now()}.webm`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const adjustZoom = (delta: number) => {
     setZoom(prev => Math.max(CONFIG.ZOOM_MIN, Math.min(CONFIG.ZOOM_MAX, prev + delta)));
