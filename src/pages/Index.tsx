@@ -229,7 +229,7 @@ const Index = () => {
 
         {/* Footer */}
         <footer className="p-4 md:p-6 flex items-center justify-center">
-          <span className="text-white/20 text-xs tracking-widest">© 2024</span>
+          <span className="text-white/20 text-xs tracking-widest">© 2025</span>
         </footer>
       </div>
 
