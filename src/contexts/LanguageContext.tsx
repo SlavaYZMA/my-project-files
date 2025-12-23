@@ -16,18 +16,22 @@ export const translations: Translations = {
   'nav.ethics': { ru: 'Этика', en: 'Ethics' },
   'nav.participate': { ru: 'Как участвовать', en: 'How to Participate' },
   'nav.contacts': { ru: 'Контакты', en: 'Contacts' },
-  
+
   // Index page
   'index.title': { ru: 'ГОРГОНА', en: 'GORGONA' },
   'index.subtitle1': { ru: 'Присутствуют', en: 'Present' },
   'index.subtitle2': { ru: '', en: '' },
-  'index.description': { 
-    ru: 'Цифровая видео-инсталляция, основанная на анонимном участии женщин, переживших гендерное насилие.\n\nЭто пространство фиксирует само существование тех, кто пережил травму — без требования быть увиденными определённым образом. Проект не репрезентирует насилие и не предлагает его визуального образа.',
-    en: 'A digital video installation based on the anonymous participation of women who have experienced gender-based violence.\n\nThis space records the very existence of those who have survived trauma — without requiring to be seen in any particular way. The project does not represent violence or provide its visual depiction.'
+  'index.descriptionParagraph1': { 
+    ru: 'Это пространство фиксирует само существование тех, кто пережил травму — без требования быть увиденными определённым образом.',
+    en: 'This space records the very existence of those who have survived trauma — without requiring to be seen in any particular way.'
+  },
+  'index.descriptionParagraph2': { 
+    ru: 'Проект не репрезентирует насилие и не предлагает его визуального образа.',
+    en: 'The project does not represent violence or provide its visual depiction.'
   },
   'index.record': { ru: 'ЗАПИСАТЬ', en: 'RECORD' },
   'index.watch': { ru: 'СМОТРЕТЬ', en: 'VIEW' },
-  
+
   // Camera page
   'camera.instruction': { 
     ru: 'Смотрите прямо в камеру. Запись начнётся автоматически.',
@@ -36,37 +40,30 @@ export const translations: Translations = {
   'camera.lookAtCamera': { ru: 'Смотрите прямо в камеру', en: 'Look at the camera' },
   'camera.recording': { ru: 'ЗАПИСЬ', en: 'REC' },
   'camera.paused': { ru: 'ПАУЗА', en: 'PAUSED' },
-  
-  // Status colors explanation
   'camera.statusGreen': { ru: 'Глаза в рамке, смотрят в камеру → идёт запись', en: 'Eyes in frame, looking at camera → recording' },
   'camera.statusOrange': { ru: 'Глаза в рамке, но взгляд не в камеру', en: 'Eyes in frame, but not looking at camera' },
   'camera.statusRed': { ru: 'Глаза не в рамке / один глаз закрыт / слишком далеко', en: 'Eyes not in frame / one eye closed / too far' },
   'camera.statusBlack': { ru: 'Глаза не в рамке / слишком далеко', en: 'Eyes not in frame / too far' },
   'camera.statusRecording': { ru: 'Запись идёт — можете смотреть в любую сторону', en: 'Recording — you can look anywhere' },
   'camera.instructionBlack': { ru: 'Чёрный фон: глаза не в рамке / слишком далеко', en: 'Black background: eyes not in frame / too far' },
-  
-  // Instructions above frame
   'camera.instructionTitle': { ru: 'Инструкция:', en: 'Instructions:' },
   'camera.instructionWhite': { ru: 'Белая рамка: место для глаз', en: 'White frame: place for eyes' },
   'camera.instructionRed': { ru: 'Красный фон: глаза не в рамке / один глаз закрыт', en: 'Red background: eyes not in frame / one eye closed' },
   'camera.instructionYellow': { ru: 'Жёлтый фон: глаза в рамке, но взгляд не в камеру', en: 'Yellow background: eyes in frame, but not looking at camera' },
   'camera.instructionGreen': { ru: 'Зелёный фон: глаза в рамке, смотрят в камеру → запись', en: 'Green background: eyes in frame, looking at camera → recording' },
-  
   'camera.saved': { ru: 'СОХРАНЕНО', en: 'SAVED' },
   'camera.deleteLink': { 
-  ru: 'Ссылка для удаления: Ссылка отображается один раз. С её помощью запись будет полностью удалена из проекта. Сохраняйте её в безопасном месте.', 
-  en: 'Delete link: The link is displayed only once. Using it will permanently delete the recording from the project. Please keep it in a safe place.' 
-},
+    ru: 'Ссылка для удаления: Ссылка отображается один раз. С её помощью запись будет полностью удалена из проекта. Сохраняйте её в безопасном месте.', 
+    en: 'Delete link: The link is displayed only once. Using it will permanently delete the recording from the project. Please keep it in a safe place.' 
+  },
   'camera.viewCanvas': { ru: 'СМОТРЕТЬ ПОЛОТНО', en: 'VIEW CANVAS' },
-  
+
   // Identity confirmation
   'camera.identity': {
     ru: 'Я подтверждаю, что идентифицирую себя как женщина, пережившая гендерное насилие.',
     en: 'I confirm that I identify as a woman who has experienced gender-based violence.'
   },
   'camera.confirm': { ru: 'ПОДТВЕРДИТЬ', en: 'CONFIRM' },
-  
-  // Consent
   'camera.consent': { ru: 'Я принимаю условия участия', en: 'I accept the terms of participation' },
   'camera.viewConsent': { ru: 'Просмотреть условия', en: 'View terms' },
   'camera.save': { ru: 'ДОБАВИТЬ В ПОЛОТНО', en: 'ADD TO CANVAS' },
@@ -78,7 +75,7 @@ export const translations: Translations = {
   'camera.saveForever': { ru: 'СОХРАНИТЬ НАВСЕГДА', en: 'SAVE FOREVER' },
   'camera.recordAnother': { ru: 'ЗАПИСАТЬ ЕЩЁ', en: 'RECORD ANOTHER' },
   'common.back': { ru: 'Назад', en: 'Back' },
-  
+
   // Support
   'support.title': { ru: 'Ресурсы поддержки', en: 'Support Resources' },
   'support.trigger': { 
@@ -86,14 +83,14 @@ export const translations: Translations = {
     en: '⚠️ Trigger Warning: Strong emotions during participation are normal.'
   },
   'support.hotlines': { ru: 'Горячие линии (по желанию):', en: 'Hotlines (optional):' },
-  
+
   // Canvas
   'canvas.loading': { ru: 'ЗАГРУЗКА...', en: 'LOADING...' },
   'canvas.empty': { ru: 'НЕТ ЗАПИСЕЙ', en: 'NO RECORDINGS' },
   'canvas.admin': { ru: 'АДМИН', en: 'ADMIN' },
   'canvas.refresh': { ru: 'ОБНОВИТЬ', en: 'REFRESH' },
   'canvas.addFirst': { ru: 'ДОБАВИТЬ ПЕРВУЮ ЗАПИСЬ', en: 'ADD FIRST RECORDING' },
-  
+
   // About modal
   'about.title': { ru: 'О ПРОЕКТЕ', en: 'ABOUT' },
   'about.p1': {
