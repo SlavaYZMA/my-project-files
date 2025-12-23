@@ -285,62 +285,50 @@ const Camera = () => {
       let isActive = true;
 
       const drawFrame = () => {
-  if (!videoRef.current || !isActive) return;
-  const video = videoRef.current;
-  let videoW = video.videoWidth;
-  let videoH = video.videoHeight;
-  const isPortrait = videoH > videoW;
+        if (!videoRef.current || !isActive) return;
+        const video = videoRef.current;
 
-  // Если portrait, ротируем на 90° clockwise (для front camera)
-  ctx.save();
-  if (isPortrait) {
-    addLog('Portrait detected - rotating frame');
-    ctx.translate(CONFIG.FRAME_WIDTH / 2, CONFIG.FRAME_HEIGHT / 2);
-    ctx.rotate(Math.PI / 2);  // 90° clockwise
-    ctx.translate(-CONFIG.FRAME_HEIGHT / 2, -CONFIG.FRAME_WIDTH / 2);
-    // Swap dims для расчётов (теперь "landscape")
-    [videoW, videoH] = [videoH, videoW];
-  }
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
 
-  // Расчёт кропа (теперь на "landscape" dims)
-  const scaleX = CONFIG.FRAME_WIDTH / videoW;
-  const scaleY = CONFIG.FRAME_HEIGHT / videoH;
-  const baseScale = Math.max(scaleX, scaleY);  // cover
-  const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-  const finalScale = baseScale * effectiveZoom;
-  const sw = CONFIG.FRAME_WIDTH / finalScale;
-  const sh = CONFIG.FRAME_HEIGHT / finalScale;
-  const sx = (videoW - sw) / 2;
-  const sy = (videoH - sh) / 2;
+        // Новый надёжный расчёт кропа
+        const scaleX = CONFIG.FRAME_WIDTH / videoW;
+        const scaleY = CONFIG.FRAME_HEIGHT / videoH;
+        const baseScale = Math.max(scaleX, scaleY); // cover
+        const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+        const finalScale = baseScale * effectiveZoom;
 
-  // Лог на первом кадре (без изменений)
-  frameCounterRef.current += 1;
-  if (frameCounterRef.current === 1) {
-    addLog(`[Crop Calc] Video:${videoW}x${videoH} (post-swap) | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom} | Portrait:${isPortrait}`);
-  }
+        const sw = CONFIG.FRAME_WIDTH / finalScale;
+        const sh = CONFIG.FRAME_HEIGHT / finalScale;
+        const sx = (videoW - sw) / 2;
+        const sy = (videoH - sh) / 2;
 
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        // Лог на первом кадре
+        frameCounterRef.current += 1;
+        if (frameCounterRef.current === 1) {
+          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
+        }
 
-  // Зеркало (после ротации)
-  ctx.translate(CONFIG.FRAME_WIDTH, 0);
-  ctx.scale(-1, 1);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-  try {
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-  } catch (e) {
-    addLog(`Draw error: ${e.message}`);
-  }
+        ctx.save();
+        ctx.translate(CONFIG.FRAME_WIDTH, 0);
+        ctx.scale(-1, 1);
 
-  ctx.restore();  // Восстановить после ротации/зеркала
+        try {
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        } catch (e) {}
 
-  // Тестовая рамка (без изменений)
-  ctx.strokeStyle = '#FF0000';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        ctx.restore();
 
-  if (isActive) requestAnimationFrame(drawFrame);
-};
+        // Тестовая красная рамка
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+
+        if (isActive) requestAnimationFrame(drawFrame);
+      };
 
       drawFrame();
 
@@ -382,23 +370,17 @@ const Camera = () => {
         };
         recorder.onstop = () => {
           isActive = false;
-          // Используем базовый MIME-тип без кодека для лучшей совместимости
-          const baseMimeType = mimeType.split(';')[0];
-          const blob = new Blob(chunksRef.current, { type: baseMimeType });
-          addLog(`Stopped. Size: ${blob.size}, Type: ${baseMimeType} (from ${mimeType})`);
+          const blob = new Blob(chunksRef.current, { type: mimeType });
+          addLog(`Stopped. Size: ${blob.size}, Type: ${mimeType}`);
           setRecordedBlob(blob);
           setState('preview');
           if (previewRef.current) {
             if (previewRef.current.src) URL.revokeObjectURL(previewRef.current.src);
             const url = URL.createObjectURL(blob);
-            addLog(`[Preview] Blob URL created: ${url.substring(0, 50)}...`);
             previewRef.current.src = url;
-            previewRef.current.load(); // Принудительная загрузка
             const playPromise = previewRef.current.play();
             if (playPromise !== undefined) {
-              playPromise.then(() => {
-                addLog('[Preview] Playback started successfully');
-              }).catch(error => {
+              playPromise.catch(error => {
                 addLog('Preview Play Error: ' + error.message);
               });
             }
