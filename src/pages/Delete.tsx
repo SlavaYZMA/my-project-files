@@ -3,8 +3,31 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+const translations = {
+  ru: {
+    title: 'Удаление глаз',
+    description: 'Это действие необратимо.\nВаш взгляд будет удалён навсегда из вечного полотна.',
+    deleting: 'Удаление...',
+    successMessage: 'Глаза удалены навсегда.',
+    errorMessage: 'Ошибка удаления',
+    deleteButton: 'Удалить навсегда',
+    back: '← Вернуться на главную',
+  },
+  en: {
+    title: 'Delete Eyes',
+    description: 'This action is irreversible.\nYour gaze will be permanently removed from the eternal canvas.',
+    deleting: 'Deleting...',
+    successMessage: 'Eyes permanently deleted.',
+    errorMessage: 'Delete error',
+    deleteButton: 'Delete Forever',
+    back: '← Back to Home',
+  },
+};
+
 const Delete = () => {
-  const { t } = useLanguage(); // если используешь переводы, иначе удали
+  const { language } = useLanguage(); // предполагаем, что 'ru' или 'en'
+  const t = translations[language] || translations.ru;
+
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
 
@@ -14,9 +37,9 @@ const Delete = () => {
   useEffect(() => {
     if (!token) {
       setStatus('error');
-      setMessage('Токен не найден');
+      setMessage(t.errorMessage);
     }
-  }, [token]);
+  }, [token, t.errorMessage]);
 
   const handleDelete = async () => {
     if (!token) return;
@@ -24,7 +47,6 @@ const Delete = () => {
     setStatus('deleting');
 
     try {
-      // 1. Находим cid по токену
       const { data: tokenData, error: tokenError } = await supabase
         .from('delete_tokens')
         .select('cid')
@@ -32,19 +54,17 @@ const Delete = () => {
         .single();
 
       if (tokenError || !tokenData) {
-        throw new Error('Токен недействителен или уже использован');
+        throw new Error(t.errorMessage);
       }
 
       const cid = tokenData.cid;
 
-      // 2. Удаляем видео из Storage
       const { error: storageError } = await supabase.storage
         .from('eyes')
         .remove([cid]);
 
       if (storageError) throw storageError;
 
-      // 3. Удаляем запись из таблицы eyes (cascade удалит токен)
       const { error: dbError } = await supabase
         .from('eyes')
         .delete()
@@ -53,44 +73,43 @@ const Delete = () => {
       if (dbError) throw dbError;
 
       setStatus('success');
-      setMessage('Глаза удалены навсегда.');
+      setMessage(t.successMessage);
 
     } catch (err: any) {
       console.error('Delete error:', err);
       setStatus('error');
-      setMessage(err.message || 'Ошибка удаления');
+      setMessage(err.message || t.errorMessage);
     }
   };
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center font-mono">
       <div className="text-center max-w-md p-8">
-        <h1 className="text-2xl md:text-3xl mb-8">Удаление глаз</h1>
+        <h1 className="text-2xl md:text-3xl mb-8">{t.title}</h1>
 
         {status === 'idle' && (
           <>
             <p className="text-white/60 mb-10 leading-relaxed">
-              Это действие необратимо.<br />
-              Ваш взгляд будет удалён навсегда из вечного полотна.
+              {t.description.split('\n').map((line, i) => <span key={i}>{line}<br/></span>)}
             </p>
             <button
               onClick={handleDelete}
               className="px-12 py-5 bg-red-900/80 hover:bg-red-800 text-white text-lg uppercase tracking-widest transition-colors"
             >
-              Удалить навсегда
+              {t.deleteButton}
             </button>
           </>
         )}
 
         {status === 'deleting' && (
-          <p className="text-white/60 text-lg">Удаление...</p>
+          <p className="text-white/60 text-lg">{t.deleting}</p>
         )}
 
         {status === 'success' && (
           <>
             <p className="text-green-400 text-xl mb-8">{message}</p>
             <Link to="/" className="text-white/60 hover:text-white underline transition-colors">
-              ← Вернуться на главную
+              {t.back}
             </Link>
           </>
         )}
@@ -99,7 +118,7 @@ const Delete = () => {
           <>
             <p className="text-red-400 text-xl mb-8">{message}</p>
             <Link to="/" className="text-white/60 hover:text-white underline transition-colors">
-              ← Вернуться на главную
+              {t.back}
             </Link>
           </>
         )}
