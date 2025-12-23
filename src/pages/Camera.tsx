@@ -704,9 +704,13 @@ const Camera = () => {
                 const v = e.currentTarget;
                 addLog(`[Preview Vid] Video Resolution: ${v.videoWidth}x${v.videoHeight}`);
                 addLog(`[Preview Element] Display Size: ${v.clientWidth}x${v.clientHeight}`);
+                addLog(`[Preview Container] Container Size: ${CONFIG.FRAME_WIDTH}x${CONFIG.FRAME_HEIGHT}`);
               }}
-              className={`w-full h-full object-contain ${state !== 'preview' ? 'hidden' : ''}`}
+              className={`${state !== 'preview' ? 'hidden' : ''}`}
               style={{
+                width: CONFIG.FRAME_WIDTH,
+                height: CONFIG.FRAME_HEIGHT,
+                objectFit: 'fill',
                 border: '2px solid yellow',
               }}
             />
