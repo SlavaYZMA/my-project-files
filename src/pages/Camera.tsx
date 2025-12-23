@@ -286,64 +286,42 @@ const Camera = () => {
       let isActive = true;
 
       const drawFrame = () => {
-  if (!videoRef.current || !isActive) return;
-  const video = videoRef.current;
-  const canvas = canvasRef.current!; // Уверенность, что канвас есть
-  const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
+        if (!videoRef.current || !isActive) return;
+        const video = videoRef.current;
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
 
-  // 1. Очищаем и заливаем черным
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        const scaleX = CONFIG.FRAME_WIDTH / videoW;
+        const scaleY = CONFIG.FRAME_HEIGHT / videoH;
+        const baseScale = Math.max(scaleX, scaleY);
+        const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+        const finalScale = baseScale * effectiveZoom;
+        const sw = CONFIG.FRAME_WIDTH / finalScale;
+        const sh = CONFIG.FRAME_HEIGHT / finalScale;
+        const sx = (videoW - sw) / 2;
+        const sy = (videoH - sh) / 2;
 
-  const videoW = video.videoWidth;
-  const videoH = video.videoHeight;
+        frameCounterRef.current += 1;
+        if (frameCounterRef.current === 1) {
+          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
+        }
 
-  if (videoW && videoH) {
-    // 2. Рассчитываем масштаб, имитирующий object-fit: cover
-    const scaleX = CONFIG.FRAME_WIDTH / videoW;
-    const scaleY = CONFIG.FRAME_HEIGHT / videoH;
-    // Берем максимальный масштаб, чтобы заполнить весь кадр
-    const coverScale = Math.max(scaleX, scaleY);
-    
-    // 3. Добавляем пользовательский зум
-    const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-    const finalScale = coverScale * effectiveZoom;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        ctx.save();
+        ctx.translate(CONFIG.FRAME_WIDTH, 0);
+        ctx.scale(-1, 1);
+        try {
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        } catch (e) {}
+        ctx.restore();
 
-    ctx.save();
-    
-    // 4. Переносим начало координат в ЦЕНТР канваса
-    ctx.translate(CONFIG.FRAME_WIDTH / 2, CONFIG.FRAME_HEIGHT / 2);
-    
-    // 5. Отражаем по горизонтали (зеркало)
-    ctx.scale(-1, 1);
-    
-    // 6. Рисуем видео так, чтобы его центр совпал с центром канваса
-    // Мы просто масштабируем и рисуем со смещением на половину размера
-    const drawW = videoW * finalScale;
-    const drawH = videoH * finalScale;
-    
-    try {
-      ctx.drawImage(
-        video, 
-        -drawW / 2, // X смещение (половина ширины влево)
-        -drawH / 2, // Y смещение (половина высоты вверх)
-        drawW, 
-        drawH
-      );
-    } catch (e) {
-      // Игнорируем ошибки отрисовки (бывает при переключении потоков)
-    }
-    
-    ctx.restore();
-  }
-  
-  // Рамка записи (если нужно)
-  // ctx.strokeStyle = '#FF0000';
-  // ctx.lineWidth = 2;
-  // ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-  if (isActive) requestAnimationFrame(drawFrame);
-};
+        if (isActive) requestAnimationFrame(drawFrame);
+      };
 
       drawFrame();
 
