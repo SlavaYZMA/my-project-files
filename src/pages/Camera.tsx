@@ -67,6 +67,7 @@ const Camera = () => {
   const stateRef = useRef<RecordingState>('identity');
   const bgStateRef = useRef<BackgroundState>('red');
   const isStartingRef = useRef(false);
+  const frameCounterRef = useRef(0); // Для лога первого кадра
 
   const [state, setState] = useState<RecordingState>('identity');
   const [recordTime, setRecordTime] = useState(CONFIG.RECORD_SECONDS);
@@ -104,7 +105,6 @@ const Camera = () => {
 
   const calculateGaze = useCallback((landmarks: Results['multiFaceLandmarks'][0]): boolean => {
     if (!landmarks || landmarks.length < 478) return false;
-
     const leftIris = landmarks[LEFT_IRIS_CENTER];
     const leftInner = landmarks[LEFT_EYE_INNER];
     const leftOuter = landmarks[LEFT_EYE_OUTER];
@@ -131,7 +131,6 @@ const Camera = () => {
 
     const leftValid = leftGazeX <= CONFIG.GAZE_THRESHOLD_X && leftGazeY <= CONFIG.GAZE_THRESHOLD_Y;
     const rightValid = rightGazeX <= CONFIG.GAZE_THRESHOLD_X && rightGazeY <= CONFIG.GAZE_THRESHOLD_Y;
-
     return leftValid && rightValid;
   }, []);
 
@@ -139,7 +138,6 @@ const Camera = () => {
     if (!landmarks || landmarks.length < 478) {
       return { leftEye: null, rightEye: null, bothInFrame: false, hasValidSize: false };
     }
-
     const getEyeBounds = (indices: number[]) => {
       const points = indices.map(i => landmarks[i]);
       const xs = points.map(p => p.x);
@@ -155,10 +153,8 @@ const Camera = () => {
         maxY: Math.max(...ys),
       };
     };
-
     const leftBounds = getEyeBounds(LEFT_EYE_INDICES);
     const rightBounds = getEyeBounds(RIGHT_EYE_INDICES);
-
     const margin = CONFIG.FRAME_MARGIN;
     const leftInFrame =
       leftBounds.minX > margin && leftBounds.maxX < (1 - margin) &&
@@ -166,10 +162,8 @@ const Camera = () => {
     const rightInFrame =
       rightBounds.minX > margin && rightBounds.maxX < (1 - margin) &&
       rightBounds.minY > margin && rightBounds.maxY < (1 - margin);
-
     const avgEyeWidth = (leftBounds.width + rightBounds.width) / 2;
     const hasValidSize = avgEyeWidth >= CONFIG.MIN_EYE_WIDTH && avgEyeWidth <= CONFIG.MAX_EYE_WIDTH;
-
     return {
       leftEye: { x: leftBounds.centerX, y: leftBounds.centerY, width: leftBounds.width, height: leftBounds.height },
       rightEye: { x: rightBounds.centerX, y: rightBounds.centerY, width: rightBounds.width, height: rightBounds.height },
@@ -188,9 +182,7 @@ const Camera = () => {
   const onFaceMeshResults = useCallback((results: Results) => {
     const currentState = stateRef.current;
     if (currentState === 'identity' || currentState === 'preview') return;
-
     const now = Date.now();
-
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       if (blinkStartRef.current === null) {
         blinkStartRef.current = now;
@@ -205,18 +197,14 @@ const Camera = () => {
       }
       return;
     }
-
     blinkStartRef.current = null;
     lastDetectionRef.current = now;
-
     const landmarks = results.multiFaceLandmarks[0];
     const eyeData = calculateEyeData(landmarks);
     const gazeValid = calculateGaze(landmarks);
-
     const eyesDetected = eyeData.leftEye !== null && eyeData.rightEye !== null;
     const eyesInFrame = eyeData.bothInFrame;
     const validSize = eyeData.hasValidSize;
-
     const detectionValid = eyesDetected && eyesInFrame && validSize;
     const detectionStable = updateWindow(detectionWindowRef.current, detectionValid);
     const gazeStable = updateWindow(gazeWindowRef.current, gazeValid);
@@ -229,7 +217,6 @@ const Camera = () => {
     } else {
       newBgState = 'green';
     }
-
     setBgState(newBgState);
 
     if (currentState === 'idle' && newBgState === 'green') {
@@ -265,14 +252,11 @@ const Camera = () => {
       console.log('Recording start blocked: already active');
       return;
     }
-
     isStartingRef.current = true;
     setState('recording');
     setIsRecording(false);
-
-    let prepCount = 3; // Для теста 3, в продакшене можно 5
+    let prepCount = 3;
     setPrepTimer(prepCount);
-
     const prepInterval = setInterval(() => {
       prepCount--;
       if (prepCount > 0) {
@@ -286,11 +270,11 @@ const Camera = () => {
 
     const proceedToActualRecording = () => {
       isStartingRef.current = false;
+      frameCounterRef.current = 0; // Сброс счётчика кадров
       addLog('=== START ACTUAL RECORDING ===');
       setRecordTime(CONFIG.RECORD_SECONDS);
       chunksRef.current = [];
       setIsRecording(true);
-
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
       canvas.width = CONFIG.FRAME_WIDTH;
@@ -304,6 +288,27 @@ const Camera = () => {
         if (!videoRef.current || !isActive) return;
         const video = videoRef.current;
 
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
+
+        // Новый надёжный расчёт кропа
+        const scaleX = CONFIG.FRAME_WIDTH / videoW;
+        const scaleY = CONFIG.FRAME_HEIGHT / videoH;
+        const baseScale = Math.max(scaleX, scaleY); // cover
+        const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+        const finalScale = baseScale * effectiveZoom;
+
+        const sw = CONFIG.FRAME_WIDTH / finalScale;
+        const sh = CONFIG.FRAME_HEIGHT / finalScale;
+        const sx = (videoW - sw) / 2;
+        const sy = (videoH - sh) / 2;
+
+        // Лог на первом кадре
+        frameCounterRef.current += 1;
+        if (frameCounterRef.current === 1) {
+          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
+        }
+
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
@@ -311,48 +316,16 @@ const Camera = () => {
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
 
-        const videoW = video.videoWidth;
-        const videoH = video.videoHeight;
-        const inputAspect = videoW / videoH;
-        const outputAspect = CONFIG.FRAME_WIDTH / CONFIG.FRAME_HEIGHT;
-
-        let sw, sh, sx, sy;
-        if (inputAspect > outputAspect) {
-          sh = videoH;
-          sw = videoH * outputAspect;
-          sx = (videoW - sw) / 2;
-          sy = 0;
-        } else {
-          sw = videoW;
-          sh = videoW / outputAspect;
-          sx = 0;
-          sy = (videoH - sh) / 2;
-        }
-
-        const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-        if (effectiveZoom > 1) {
-          const zoomW = sw / effectiveZoom;
-          const zoomH = sh / effectiveZoom;
-          sx += (sw - zoomW) / 2;
-          sy += (sh - zoomH) / 2;
-          sw = zoomW;
-          sh = zoomH;
-        }
-
         try {
           ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-
-          // === ТЕСТОВАЯ КРАСНАЯ РАМКА ПО КРАЯМ КАДРА ===
-          ctx.restore(); // Выходим из зеркального отражения
-          ctx.strokeStyle = '#FF0000';
-          ctx.lineWidth = 4;
-          ctx.strokeRect(2, 2, CONFIG.FRAME_WIDTH - 4, CONFIG.FRAME_HEIGHT - 4);
-
-          // Возвращаем трансформацию для следующего кадра
-          ctx.save();
-          ctx.translate(CONFIG.FRAME_WIDTH, 0);
-          ctx.scale(-1, 1);
         } catch (e) {}
+
+        ctx.restore();
+
+        // Тестовая красная рамка
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
         if (isActive) requestAnimationFrame(drawFrame);
       };
@@ -360,10 +333,8 @@ const Camera = () => {
       drawFrame();
 
       const canvasStream = canvas.captureStream(CONFIG.FPS);
-
       let mimeType = '';
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
       if (isMobile) {
         if (MediaRecorder.isTypeSupported('video/mp4')) {
           mimeType = 'video/mp4';
@@ -392,20 +363,17 @@ const Camera = () => {
       try {
         const recorder = new MediaRecorder(canvasStream, recorderOptions);
         recorderRef.current = recorder;
-
         recorder.ondataavailable = (e) => {
           if (e.data && e.data.size > 0) {
             chunksRef.current.push(e.data);
           }
         };
-
         recorder.onstop = () => {
           isActive = false;
           const blob = new Blob(chunksRef.current, { type: mimeType });
           addLog(`Stopped. Size: ${blob.size}, Type: ${mimeType}`);
           setRecordedBlob(blob);
           setState('preview');
-
           if (previewRef.current) {
             if (previewRef.current.src) URL.revokeObjectURL(previewRef.current.src);
             const url = URL.createObjectURL(blob);
@@ -418,7 +386,6 @@ const Camera = () => {
             }
           }
         };
-
         recorder.start(100);
         addLog('MediaRecorder started');
 
@@ -440,7 +407,6 @@ const Camera = () => {
             }
           }
         }, 100);
-
         recordIntervalRef.current = timerId;
       } catch (e: any) {
         addLog(`Recorder init failed: ${e.message}`);
@@ -452,41 +418,34 @@ const Camera = () => {
 
   useEffect(() => {
     if (state === 'identity') return;
-
     const initCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
           audio: false
         });
-
         streamRef.current = stream;
         const track = stream.getVideoTracks()[0];
         const capabilities = track.getCapabilities?.() as Record<string, unknown>;
         if (capabilities && 'zoom' in capabilities) {
           setSupportsHardwareZoom(true);
         }
-
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
-
         const faceMesh = new FaceMesh({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
-
         faceMesh.setOptions({
           maxNumFaces: 1,
           refineLandmarks: true,
           minDetectionConfidence: 0.5,
           minTrackingConfidence: 0.5,
         });
-
         faceMesh.onResults((results) => {
           onFaceMeshResultsRef.current(results);
         });
-
         faceMeshRef.current = faceMesh;
 
         if (videoRef.current) {
@@ -507,7 +466,6 @@ const Camera = () => {
         addLog(`Camera init error: ${err}`);
       }
     };
-
     initCamera();
 
     return () => {
@@ -557,17 +515,13 @@ const Camera = () => {
           contentType: 'video/webm',
           upsert: false,
         });
-
       if (uploadError) throw uploadError;
-
       await supabase.from('eyes').insert({ cid: fileName });
-
       const deleteToken = crypto.randomUUID();
       await supabase.from('delete_tokens').insert({
         cid: fileName,
         delete_token: deleteToken,
       });
-
       const siteUrl = window.location.origin;
       const deleteUrl = `${siteUrl}/delete?token=${deleteToken}`;
       setDeleteUrl(deleteUrl);
@@ -677,7 +631,6 @@ const Camera = () => {
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
         <ArrowLeft size={24} />
       </Link>
-
       {state === 'recording' && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 w-full max-w-xs text-center">
           <div className="flex items-center gap-2">
@@ -705,7 +658,6 @@ const Camera = () => {
           )}
         </div>
       )}
-
       <div className="flex-1 flex flex-col items-center justify-center px-4 w-full max-w-2xl pt-20">
         <div className="relative mb-8">
           <div
@@ -733,7 +685,6 @@ const Camera = () => {
                 transform: `translate(-50%, -50%) scaleX(-1) scale(${supportsHardwareZoom ? 1 : zoom})`,
               }}
             />
-
             <video
               ref={previewRef}
               playsInline
@@ -747,10 +698,9 @@ const Camera = () => {
               }}
               className={`w-full h-full object-contain ${state !== 'preview' ? 'hidden' : ''}`}
               style={{
-                border: '2px solid yellow', // отладочная жёлтая рамка
+                border: '2px solid yellow',
               }}
             />
-
             {state !== 'preview' && (
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
@@ -782,7 +732,6 @@ const Camera = () => {
               </div>
             )}
           </div>
-
           <div className="mt-3 text-center">
             <p className={`text-xs transition-colors duration-300 ${
               state === 'recording' && isRecording
@@ -804,7 +753,6 @@ const Camera = () => {
             </p>
           </div>
         </div>
-
         {state === 'recording' && (
           <div className="flex flex-col items-center mb-8">
             {prepTimer !== null ? (
@@ -825,7 +773,6 @@ const Camera = () => {
             )}
           </div>
         )}
-
         {state === 'idle' && !supportsHardwareZoom && (
           <div className="flex items-center gap-4 mb-6">
             <button
@@ -845,7 +792,6 @@ const Camera = () => {
             </button>
           </div>
         )}
-
         {state === 'preview' && !deleteUrl && (
           <div className="flex flex-col gap-4 w-full max-w-xs">
             <div className="border border-white/10 p-4 mb-2">
@@ -895,7 +841,6 @@ const Camera = () => {
             </div>
           </div>
         )}
-
         {deleteUrl && (
           <div className="text-center max-w-sm">
             <div className="text-green-500 mb-4 text-2xl">✓</div>
@@ -912,7 +857,6 @@ const Camera = () => {
           </div>
         )}
       </div>
-
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 text-green-400 text-xs font-mono p-2 max-h-64 overflow-y-auto z-50 border-t border-white/20">
         <div className="flex justify-between items-center mb-1 px-2">
           <span className="text-white/60">DEBUG LOGS (скопируйте текст)</span>
@@ -933,7 +877,6 @@ const Camera = () => {
           {debugLogs.join('\n') || 'Нет логов пока...'}
         </pre>
       </div>
-
       <canvas ref={canvasRef} className="hidden" />
       <ConsentModal isOpen={showConsent} onClose={() => setShowConsent(false)} />
     </div>
