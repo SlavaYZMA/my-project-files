@@ -829,26 +829,6 @@ const Camera = () => {
           </div>
         )}
       </div>
-      <div className="fixed bottom-0 left-0 right-0 bg-black/90 text-green-400 text-xs font-mono p-2 max-h-64 overflow-y-auto z-50 border-t border-white/20">
-        <div className="flex justify-between items-center mb-1 px-2">
-          <span className="text-white/60">DEBUG LOGS (скопируйте текст)</span>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(debugLogs.join('\n')).then(() => {
-                alert('Логи скопированы в буфер обмена');
-              }).catch(() => {
-                alert('Не удалось скопировать');
-              });
-            }}
-            className="text-white/40 hover:text-white text-xs underline"
-          >
-            Копировать
-          </button>
-        </div>
-        <pre className="whitespace-pre-wrap break-all px-2">
-          {debugLogs.join('\n') || 'Нет логов пока...'}
-        </pre>
-      </div>
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
       <ConsentModal isOpen={showConsent} onClose={() => setShowConsent(false)} />
     </div>
