@@ -127,7 +127,9 @@ const Index = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center font-mono text-white">
-        <p className="text-red-500/60 text-sm tracking-widest uppercase">Ошибка загрузки</p>
+        <p className="text-red-500/60 text-sm tracking-widest uppercase">
+          {t('canvas.error')}
+        </p>
       </div>
     );
   }
@@ -199,13 +201,13 @@ const Index = () => {
 
             <div className="max-w-lg mx-auto mb-12">
               <p className="text-white/40 text-base md:text-base leading-relaxed mb-4 tracking-wide">
-                Цифровая видео-инсталляция, основанная на анонимном участии женщин, переживших гендерное насилие.
+                {t('index.description1')}
               </p>
               <p className="text-white/30 text-sm md:text-sm leading-relaxed mb-4 tracking-wide">
-                Пространство фиксирует существование тех, кто пережил травму, без требования быть увиденными определённым образом.
+                {t('index.description2')}
               </p>
               <p className="text-white/40 text-sm md:text-sm leading-relaxed tracking-wide">
-                Проект не репрезентирует насилие и не предлагает его визуального образа.
+                {t('index.description3')}
               </p>
             </div>
 
