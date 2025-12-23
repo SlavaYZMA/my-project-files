@@ -198,7 +198,6 @@ const Index = () => {
             </h2>
 
             <div className="max-w-lg mx-auto mb-12 text-center font-sans">
- <div className="max-w-lg mx-auto mb-12 text-center font-sans">
   <p className="text-white font-bold text-xl md:text-2xl leading-snug mb-3 tracking-wide">
     {t('index.descriptionParagraph1')}
   </p>
@@ -209,6 +208,7 @@ const Index = () => {
     {t('index.descriptionParagraph3')}
   </p>
 </div>
+
 
 
 
