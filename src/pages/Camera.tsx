@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Plus, Minus } from 'lucide-react';
 import { FaceMesh, Results } from '@mediapipe/face_mesh';
 import { Camera as MediaPipeCamera } from '@mediapipe/camera_utils';
 import { useLanguage } from '@/contexts/LanguageContext';
-import ConsentModal from '@/components/modals/ConsentModal';
+
+const ConsentModal = lazy(() => import('@/components/modals/ConsentModal'));
 
 type RecordingState = 'identity' | 'idle' | 'recording' | 'preview';
 type BackgroundState = 'red' | 'orange' | 'green';
@@ -936,7 +937,9 @@ const Camera = () => {
         </pre>
       </div>
       <canvas ref={canvasRef} className="hidden" />
-      <ConsentModal isOpen={showConsent} onClose={() => setShowConsent(false)} />
+      <Suspense fallback={<div>Loading...</div>}>
+        <ConsentModal isOpen={showConsent} onClose={() => setShowConsent(false)} />
+      </Suspense>
     </div>
   );
 };
