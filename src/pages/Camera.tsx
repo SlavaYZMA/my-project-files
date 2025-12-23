@@ -799,8 +799,6 @@ const Camera = () => {
             </button>
             <div className="mt-4 pt-4 border-t border-white/10">
               <p className="text-yellow-500/60 text-xs mb-2">{t('support.trigger')}</p>
-              <p className="text-white/30 text-xs">{t('support.hotlines')}</p>
-              <p className="text-white/40 text-xs">🇷🇺 8-800-2000-122</p>
             </div>
           </div>
         )}
