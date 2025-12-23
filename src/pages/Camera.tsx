@@ -370,17 +370,23 @@ const Camera = () => {
         };
         recorder.onstop = () => {
           isActive = false;
-          const blob = new Blob(chunksRef.current, { type: mimeType });
-          addLog(`Stopped. Size: ${blob.size}, Type: ${mimeType}`);
+          // Используем базовый MIME-тип без кодека для лучшей совместимости
+          const baseMimeType = mimeType.split(';')[0];
+          const blob = new Blob(chunksRef.current, { type: baseMimeType });
+          addLog(`Stopped. Size: ${blob.size}, Type: ${baseMimeType} (from ${mimeType})`);
           setRecordedBlob(blob);
           setState('preview');
           if (previewRef.current) {
             if (previewRef.current.src) URL.revokeObjectURL(previewRef.current.src);
             const url = URL.createObjectURL(blob);
+            addLog(`[Preview] Blob URL created: ${url.substring(0, 50)}...`);
             previewRef.current.src = url;
+            previewRef.current.load(); // Принудительная загрузка
             const playPromise = previewRef.current.play();
             if (playPromise !== undefined) {
-              playPromise.catch(error => {
+              playPromise.then(() => {
+                addLog('[Preview] Playback started successfully');
+              }).catch(error => {
                 addLog('Preview Play Error: ' + error.message);
               });
             }
