@@ -26,8 +26,8 @@ export const translations: Translations = {
   en: 'A digital video installation based on the anonymous participation of women who have experienced gender-based violence.'
 },
 'index.descriptionParagraph2': {
-  ru: 'Это пространство фиксирует само существование тех, кто пережил травму — без требования быть увиденными определённым образом.',
-  en: 'This space records the very existence of those who have survived trauma — without requiring to be seen in any particular way.'
+  ru: 'Пространство фиксирует существование тех, кто пережил травму, без требования быть увиденными определённым образом.',
+  en: 'This space records the existence of those who have survived trauma, without requiring them to be seen in any particular way.'
 },
 'index.descriptionParagraph3': {
   ru: 'Проект не репрезентирует насилие и не предлагает его визуального образа.',
