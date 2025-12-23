@@ -127,9 +127,7 @@ const Index = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center font-mono text-white">
-        <p className="text-red-500/60 text-sm tracking-widest uppercase">
-          {t('canvas.error')}
-        </p>
+        <p className="text-red-500/60 text-sm tracking-widest uppercase">Ошибка загрузки</p>
       </div>
     );
   }
@@ -200,15 +198,16 @@ const Index = () => {
             </h2>
 
             <div className="max-w-lg mx-auto mb-12">
-              <p className="text-white/40 text-base md:text-base leading-relaxed mb-4 tracking-wide">
-                {t('index.description1')}
-              </p>
-              <p className="text-white/30 text-sm md:text-sm leading-relaxed mb-4 tracking-wide">
-                {t('index.description2')}
-              </p>
-              <p className="text-white/40 text-sm md:text-sm leading-relaxed tracking-wide">
-                {t('index.description3')}
-              </p>
+              {t('index.description')
+                .split('\n\n')
+                .map((paragraph, idx) => (
+                  <p
+                    key={idx}
+                    className={`text-white/${idx === 1 ? '30' : '40'} text-base md:text-base leading-relaxed mb-4 tracking-wide`}
+                  >
+                    {paragraph}
+                  </p>
+                ))}
             </div>
 
             {/* Action buttons */}
