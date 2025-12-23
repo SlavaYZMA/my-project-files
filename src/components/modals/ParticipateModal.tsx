@@ -91,7 +91,7 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
         <p className="text-white/60 text-xs mb-1">Контакт для связи:</p>
         <p className="text-white/40 text-xs">
           По вопросам участия, отзыва видео или другим вопросам, связанным с проектом, пишите на: <br />
-          <strong>eternalcanvas@proton.me</strong>
+          <strong>vistrum.netlify@gmail.com</strong>
         </p>
         <p className="text-white/50 text-xs mt-2">
           Мы стремимся к прозрачности, уважению и безопасности участников даже в дистанционном формате.
@@ -177,7 +177,7 @@ const ParticipateModal = ({ isOpen, onClose }: Props) => {
         <p className="text-white/60 text-xs mb-1">Contact:</p>
         <p className="text-white/40 text-xs">
           For questions about participation, deleting your video, or other project-related matters, please write to: <br />
-          <strong>eternalcanvas@proton.me</strong>
+          <strong>vistrum.netlify@gmail.com</strong>
         </p>
         <p className="text-white/50 text-xs mt-2">
           We are committed to transparency, respect, and participant safety even in a fully remote format.
