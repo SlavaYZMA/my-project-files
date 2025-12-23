@@ -21,14 +21,18 @@ export const translations: Translations = {
   'index.title': { ru: 'ГОРГОНА', en: 'GORGONA' },
   'index.subtitle1': { ru: 'Присутствуют', en: 'Present' },
   'index.subtitle2': { ru: '', en: '' },
-  'index.descriptionParagraph1': { 
-    ru: 'Это пространство фиксирует само существование тех, кто пережил травму — без требования быть увиденными определённым образом.',
-    en: 'This space records the very existence of those who have survived trauma — without requiring to be seen in any particular way.'
-  },
-  'index.descriptionParagraph2': { 
-    ru: 'Проект не репрезентирует насилие и не предлагает его визуального образа.',
-    en: 'The project does not represent violence or provide its visual depiction.'
-  },
+  'index.descriptionParagraph1': {
+  ru: 'Цифровая видео-инсталляция, основанная на анонимном участии женщин, переживших гендерное насилие.',
+  en: 'A digital video installation based on the anonymous participation of women who have experienced gender-based violence.'
+},
+'index.descriptionParagraph2': {
+  ru: 'Это пространство фиксирует само существование тех, кто пережил травму — без требования быть увиденными определённым образом.',
+  en: 'This space records the very existence of those who have survived trauma — without requiring to be seen in any particular way.'
+},
+'index.descriptionParagraph3': {
+  ru: 'Проект не репрезентирует насилие и не предлагает его визуального образа.',
+  en: 'The project does not represent violence or provide its visual depiction.'
+},
   'index.record': { ru: 'ЗАПИСАТЬ', en: 'RECORD' },
   'index.watch': { ru: 'СМОТРЕТЬ', en: 'VIEW' },
 
