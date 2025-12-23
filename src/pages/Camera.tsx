@@ -68,6 +68,7 @@ const Camera = () => {
   const bgStateRef = useRef<BackgroundState>('red');
   const isStartingRef = useRef(false);
   const frameCounterRef = useRef(0); // Для лога первого кадра
+
   const [state, setState] = useState<RecordingState>('identity');
   const [recordTime, setRecordTime] = useState(CONFIG.RECORD_SECONDS);
   const [prepTimer, setPrepTimer] = useState<number | null>(null);
@@ -81,6 +82,7 @@ const Camera = () => {
   const [showConsent, setShowConsent] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isIdentified, setIsIdentified] = useState(false);
+
   // Debug логи
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const addLog = useCallback((message: string) => {
@@ -114,6 +116,7 @@ const Camera = () => {
     const leftCenterY = (leftTop.y + leftBottom.y) / 2;
     const leftGazeX = Math.abs(leftIris.x - leftCenterX) / leftEyeWidth;
     const leftGazeY = Math.abs(leftIris.y - leftCenterY) / leftEyeHeight;
+
     const rightIris = landmarks[RIGHT_IRIS_CENTER];
     const rightInner = landmarks[RIGHT_EYE_INNER];
     const rightOuter = landmarks[RIGHT_EYE_OUTER];
@@ -125,6 +128,7 @@ const Camera = () => {
     const rightCenterY = (rightTop.y + rightBottom.y) / 2;
     const rightGazeX = Math.abs(rightIris.x - rightCenterX) / rightEyeWidth;
     const rightGazeY = Math.abs(rightIris.y - rightCenterY) / rightEyeHeight;
+
     const leftValid = leftGazeX <= CONFIG.GAZE_THRESHOLD_X && leftGazeY <= CONFIG.GAZE_THRESHOLD_Y;
     const rightValid = rightGazeX <= CONFIG.GAZE_THRESHOLD_X && rightGazeY <= CONFIG.GAZE_THRESHOLD_Y;
     return leftValid && rightValid;
@@ -204,6 +208,7 @@ const Camera = () => {
     const detectionValid = eyesDetected && eyesInFrame && validSize;
     const detectionStable = updateWindow(detectionWindowRef.current, detectionValid);
     const gazeStable = updateWindow(gazeWindowRef.current, gazeValid);
+
     let newBgState: BackgroundState;
     if (!detectionStable) {
       newBgState = 'red';
@@ -213,6 +218,7 @@ const Camera = () => {
       newBgState = 'green';
     }
     setBgState(newBgState);
+
     if (currentState === 'idle' && newBgState === 'green') {
       startRecording();
     } else if (currentState === 'recording') {
@@ -237,7 +243,6 @@ const Camera = () => {
   }, [calculateEyeData, calculateGaze]);
 
   const onFaceMeshResultsRef = useRef(onFaceMeshResults);
-
   useEffect(() => {
     onFaceMeshResultsRef.current = onFaceMeshResults;
   }, [onFaceMeshResults]);
@@ -262,6 +267,7 @@ const Camera = () => {
         proceedToActualRecording();
       }
     }, 1000);
+
     const proceedToActualRecording = () => {
       isStartingRef.current = false;
       frameCounterRef.current = 0; // Сброс счётчика кадров
@@ -275,31 +281,23 @@ const Camera = () => {
       canvas.height = CONFIG.FRAME_HEIGHT;
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       let isActive = true;
+
       const drawFrame = () => {
         if (!videoRef.current || !isActive) return;
         const video = videoRef.current;
-        let videoW = video.videoWidth;
-        let videoH = video.videoHeight;
-        const isPortrait = videoH > videoW;
 
-        ctx.save();
-        if (isPortrait) {
-          addLog('Portrait detected - rotating frame');
-          // Ротация на 90° clockwise
-          ctx.translate(CONFIG.FRAME_WIDTH / 2, CONFIG.FRAME_HEIGHT / 2);
-          ctx.rotate(Math.PI / 2);  // Если upside-down, смените на -Math.PI / 2
-          ctx.translate(-CONFIG.FRAME_HEIGHT / 2, -CONFIG.FRAME_WIDTH / 2);
-          // Swap размеров для расчётов (теперь "landscape")
-          [videoW, videoH] = [videoH, videoW];
-        }
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
 
-        // Расчёт кропа (теперь на "landscape" размерах)
+        // Новый надёжный расчёт кропа
         const scaleX = CONFIG.FRAME_WIDTH / videoW;
         const scaleY = CONFIG.FRAME_HEIGHT / videoH;
         const baseScale = Math.max(scaleX, scaleY); // cover
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
         const finalScale = baseScale * effectiveZoom;
+
         const sw = CONFIG.FRAME_WIDTH / finalScale;
         const sh = CONFIG.FRAME_HEIGHT / finalScale;
         const sx = (videoW - sw) / 2;
@@ -308,23 +306,21 @@ const Camera = () => {
         // Лог на первом кадре
         frameCounterRef.current += 1;
         if (frameCounterRef.current === 1) {
-          addLog(`[Crop Calc] Video:${videoW}x${videoH} (post-swap if portrait) | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom} | Portrait:${isPortrait}`);
+          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
         }
 
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-        // Зеркало (после ротации)
+        ctx.save();
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
 
         try {
           ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-        } catch (e) {
-          addLog(`Draw error: ${e.message}`);
-        }
+        } catch (e) {}
 
-        ctx.restore();  // Восстановить после всего
+        ctx.restore();
 
         // Тестовая красная рамка
         ctx.strokeStyle = '#FF0000';
@@ -333,7 +329,9 @@ const Camera = () => {
 
         if (isActive) requestAnimationFrame(drawFrame);
       };
+
       drawFrame();
+
       const canvasStream = canvas.captureStream(CONFIG.FPS);
       let mimeType = '';
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -358,8 +356,10 @@ const Camera = () => {
         }
         addLog(`Selected codec: ${mimeType} (Desktop)`);
       }
+
       const recorderOptions: MediaRecorderOptions = { mimeType };
       if (!isMobile) recorderOptions.videoBitsPerSecond = CONFIG.BITRATE;
+
       try {
         const recorder = new MediaRecorder(canvasStream, recorderOptions);
         recorderRef.current = recorder;
@@ -388,6 +388,7 @@ const Camera = () => {
         };
         recorder.start(100);
         addLog('MediaRecorder started');
+
         let secondsLeft = CONFIG.RECORD_SECONDS;
         const startTime = Date.now();
         const timerId = setInterval(() => {
@@ -419,19 +420,19 @@ const Camera = () => {
     if (state === 'identity') return;
     const initCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'user',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            aspectRatio: { ideal: 1280 / 720 } // Или 16 / 9 ≈ 1.777 для landscape
-          },
-          audio: false
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        aspectRatio: { ideal: 1280 / 720 }  // Или 16 / 9 ≈ 1.777 для landscape
+      },
+      audio: false
         });
         streamRef.current = stream;
         const track = stream.getVideoTracks()[0];
         const settings = track.getSettings();
-        addLog(`Stream dims: ${settings.width}x${settings.height} | aspect: ${(settings.width / settings.height).toFixed(3)}`);
+    addLog(`Stream dims: ${settings.width}x${settings.height} | aspect: ${(settings.width / settings.height).toFixed(3)}`);
         const capabilities = track.getCapabilities?.() as Record<string, unknown>;
         if (capabilities && 'zoom' in capabilities) {
           setSupportsHardwareZoom(true);
@@ -441,6 +442,7 @@ const Camera = () => {
           await videoRef.current.play();
           addLog(`Video element: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
         }
+        
         const faceMesh = new FaceMesh({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
@@ -454,6 +456,7 @@ const Camera = () => {
           onFaceMeshResultsRef.current(results);
         });
         faceMeshRef.current = faceMesh;
+
         if (videoRef.current) {
           const mpCamera = new MediaPipeCamera(videoRef.current, {
             onFrame: async () => {
@@ -474,18 +477,7 @@ const Camera = () => {
     };
     initCamera();
 
-    const handleOrientationChange = () => {
-      addLog('Orientation changed - restarting camera');
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      initCamera();
-    };
-
-    window.addEventListener('orientationchange', handleOrientationChange);
-
     return () => {
-      window.removeEventListener('orientationchange', handleOrientationChange);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -494,7 +486,7 @@ const Camera = () => {
       }
       if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
     };
-  }, [state]);
+  }, [state === 'identity']);
 
   useEffect(() => {
     if (supportsHardwareZoom && streamRef.current) {
