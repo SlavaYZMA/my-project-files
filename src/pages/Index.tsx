@@ -196,14 +196,17 @@ const Index = () => {
               <span className="text-white/40 ml-4">{t('index.subtitle2')}</span>
             </h2>
 
-            <div className="max-w-lg mx-auto mb-12">
-              <p className="text-white/40 text-base md:text-base leading-relaxed mb-4 tracking-wide">
-                {t('index.descriptionParagraph1')}
-              </p>
-              <p className="text-white/30 text-sm md:text-sm leading-relaxed tracking-wide">
-                {t('index.descriptionParagraph2')}
-              </p>
-            </div>
+            <div className="max-w-lg mx-auto mb-12 text-left">
+  <p className="text-white text-base md:text-base font-bold leading-relaxed mb-4 tracking-wide">
+    {t('index.descriptionParagraph1')}
+  </p>
+  <p className="text-white/40 text-sm md:text-sm leading-relaxed mb-4 tracking-wide">
+    {t('index.descriptionParagraph2')}
+  </p>
+  <p className="text-white/40 text-base md:text-base leading-relaxed tracking-wide">
+    {t('index.descriptionParagraph3')}
+  </p>
+</div>
 
             {/* Action buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
