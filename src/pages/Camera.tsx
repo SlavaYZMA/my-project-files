@@ -67,7 +67,7 @@ const Camera = () => {
   const stateRef = useRef<RecordingState>('identity');
   const bgStateRef = useRef<BackgroundState>('red');
   const isStartingRef = useRef(false);
-  const frameCounterRef = useRef(0); // Счётчик кадров для лога первого кадра
+  const frameCounterRef = useRef(0); // Для лога первого кадра
 
   const [state, setState] = useState<RecordingState>('identity');
   const [recordTime, setRecordTime] = useState(CONFIG.RECORD_SECONDS);
@@ -270,7 +270,7 @@ const Camera = () => {
 
     const proceedToActualRecording = () => {
       isStartingRef.current = false;
-      frameCounterRef.current = 0; // Сброс счётчика для нового лога
+      frameCounterRef.current = 0; // Сброс счётчика кадров
       addLog('=== START ACTUAL RECORDING ===');
       setRecordTime(CONFIG.RECORD_SECONDS);
       chunksRef.current = [];
@@ -287,52 +287,39 @@ const Camera = () => {
       const drawFrame = () => {
         if (!videoRef.current || !isActive) return;
         const video = videoRef.current;
+
         const videoW = video.videoWidth;
         const videoH = video.videoHeight;
 
-        // 1. ОПРЕДЕЛЯЕМ ОРИЕНТАЦИЮ
-        const isPortrait = videoH > videoW;
-
-        // 2. БАЗОВЫЙ МАСШТАБ
+        // Новый надёжный расчёт кропа
         const scaleX = CONFIG.FRAME_WIDTH / videoW;
         const scaleY = CONFIG.FRAME_HEIGHT / videoH;
-        const baseScale = isPortrait ? scaleX : Math.max(scaleX, scaleY);
-
-        // 3. ЗУМ
+        const baseScale = Math.max(scaleX, scaleY); // cover
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-
-        // 4. ФИНАЛЬНЫЙ МАСШТАБ
         const finalScale = baseScale * effectiveZoom;
 
-        // 5. ГЕОМЕТРИЯ ЗАХВАТА
-        let sw = CONFIG.FRAME_WIDTH / finalScale;
-        let sh = CONFIG.FRAME_HEIGHT / finalScale;
-
-        // ОГРАНИЧЕНИЕ: sw не может быть больше реальной ширины видео
-        if (sw > videoW) {
-          sw = videoW;
-          sh = sw * (CONFIG.FRAME_HEIGHT / CONFIG.FRAME_WIDTH);
-        }
-
+        const sw = CONFIG.FRAME_WIDTH / finalScale;
+        const sh = CONFIG.FRAME_HEIGHT / finalScale;
         const sx = (videoW - sw) / 2;
         const sy = (videoH - sh) / 2;
 
-        // Инкремент счётчика и лог только на первом кадре
+        // Лог на первом кадре
         frameCounterRef.current += 1;
         if (frameCounterRef.current === 1) {
-          addLog(`[Final Calc] Mode:${isPortrait ? 'Port' : 'Land'} sw:${Math.round(sw)} Zoom:${effectiveZoom}`);
+          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
         }
 
-        // Отрисовка
-        ctx.fillStyle = '#000';
+        ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
         ctx.save();
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
+
         try {
           ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
         } catch (e) {}
+
         ctx.restore();
 
         // Тестовая красная рамка
