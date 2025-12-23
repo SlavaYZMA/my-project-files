@@ -270,12 +270,11 @@ const Camera = () => {
 
     const proceedToActualRecording = () => {
       isStartingRef.current = false;
-      frameCounterRef.current = 0;
+      frameCounterRef.current = 0; // Сброс счётчика кадров
       addLog('=== START ACTUAL RECORDING ===');
       setRecordTime(CONFIG.RECORD_SECONDS);
       chunksRef.current = [];
       setIsRecording(true);
-
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
       canvas.width = CONFIG.FRAME_WIDTH;
@@ -288,19 +287,23 @@ const Camera = () => {
       const drawFrame = () => {
         if (!videoRef.current || !isActive) return;
         const video = videoRef.current;
+
         const videoW = video.videoWidth;
         const videoH = video.videoHeight;
 
+        // Новый надёжный расчёт кропа
         const scaleX = CONFIG.FRAME_WIDTH / videoW;
         const scaleY = CONFIG.FRAME_HEIGHT / videoH;
-        const baseScale = Math.max(scaleX, scaleY);
+        const baseScale = Math.max(scaleX, scaleY); // cover
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
         const finalScale = baseScale * effectiveZoom;
+
         const sw = CONFIG.FRAME_WIDTH / finalScale;
         const sh = CONFIG.FRAME_HEIGHT / finalScale;
         const sx = (videoW - sw) / 2;
         const sy = (videoH - sh) / 2;
 
+        // Лог на первом кадре
         frameCounterRef.current += 1;
         if (frameCounterRef.current === 1) {
           addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
@@ -308,14 +311,18 @@ const Camera = () => {
 
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+
         ctx.save();
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
+
         try {
           ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
         } catch (e) {}
+
         ctx.restore();
 
+        // Тестовая красная рамка
         ctx.strokeStyle = '#FF0000';
         ctx.lineWidth = 2;
         ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
@@ -411,22 +418,21 @@ const Camera = () => {
 
   useEffect(() => {
     if (state === 'identity') return;
-
     const initCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'user',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            aspectRatio: { ideal: 1280 / 720 }
-          },
-          audio: false
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        aspectRatio: { ideal: 1280 / 720 }  // Или 16 / 9 ≈ 1.777 для landscape
+      },
+      audio: false
         });
         streamRef.current = stream;
         const track = stream.getVideoTracks()[0];
         const settings = track.getSettings();
-        addLog(`Stream dims: ${settings.width}x${settings.height} | aspect: ${(settings.width / settings.height).toFixed(3)}`);
+    addLog(`Stream dims: ${settings.width}x${settings.height} | aspect: ${(settings.width / settings.height).toFixed(3)}`);
         const capabilities = track.getCapabilities?.() as Record<string, unknown>;
         if (capabilities && 'zoom' in capabilities) {
           setSupportsHardwareZoom(true);
@@ -436,7 +442,7 @@ const Camera = () => {
           await videoRef.current.play();
           addLog(`Video element: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
         }
-
+        
         const faceMesh = new FaceMesh({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
@@ -469,7 +475,6 @@ const Camera = () => {
         addLog(`Camera init error: ${err}`);
       }
     };
-
     initCamera();
 
     return () => {
@@ -635,7 +640,6 @@ const Camera = () => {
       <Link to="/" className="absolute top-6 left-6 text-white/40 hover:text-white transition-colors z-50">
         <ArrowLeft size={24} />
       </Link>
-
       {state === 'recording' && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 w-full max-w-xs text-center">
           <div className="flex items-center gap-2">
@@ -663,19 +667,15 @@ const Camera = () => {
           )}
         </div>
       )}
-
       <div className="flex-1 flex flex-col items-center justify-center px-4 w-full max-w-2xl pt-20">
         <div className="relative mb-8">
-          {/* АДАПТИВНЫЙ КОНТЕЙНЕР С VIDEO */}
           <div
             className={`relative overflow-hidden rounded-xl transition-shadow duration-300 ${
               state === 'recording' && bgState === 'green' ? 'animate-pulse' : ''
             }`}
             style={{
-              width: '100%',
-              maxWidth: CONFIG.FRAME_WIDTH,
-              aspectRatio: `${CONFIG.FRAME_WIDTH} / ${CONFIG.FRAME_HEIGHT}`,
-              height: 'auto',
+              width: CONFIG.FRAME_WIDTH,
+              height: CONFIG.FRAME_HEIGHT,
               boxShadow:
                 bgState === 'green'
                   ? 'inset 0 0 0 3px rgba(34, 197, 94, 0.6)'
@@ -741,7 +741,6 @@ const Camera = () => {
               </div>
             )}
           </div>
-
           <div className="mt-3 text-center">
             <p className={`text-xs transition-colors duration-300 ${
               state === 'recording' && isRecording
@@ -763,7 +762,6 @@ const Camera = () => {
             </p>
           </div>
         </div>
-
         {state === 'recording' && (
           <div className="flex flex-col items-center mb-8">
             {prepTimer !== null ? (
@@ -784,7 +782,6 @@ const Camera = () => {
             )}
           </div>
         )}
-
         {state === 'idle' && !supportsHardwareZoom && (
           <div className="flex items-center gap-4 mb-6">
             <button
@@ -804,7 +801,6 @@ const Camera = () => {
             </button>
           </div>
         )}
-
         {state === 'preview' && !deleteUrl && (
           <div className="flex flex-col gap-4 w-full max-w-xs">
             <div className="border border-white/10 p-4 mb-2">
@@ -854,7 +850,6 @@ const Camera = () => {
             </div>
           </div>
         )}
-
         {deleteUrl && (
           <div className="text-center max-w-sm">
             <div className="text-green-500 mb-4 text-2xl">✓</div>
@@ -871,7 +866,6 @@ const Camera = () => {
           </div>
         )}
       </div>
-
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 text-green-400 text-xs font-mono p-2 max-h-64 overflow-y-auto z-50 border-t border-white/20">
         <div className="flex justify-between items-center mb-1 px-2">
           <span className="text-white/60">DEBUG LOGS (скопируйте текст)</span>
@@ -892,7 +886,6 @@ const Camera = () => {
           {debugLogs.join('\n') || 'Нет логов пока...'}
         </pre>
       </div>
-
       <canvas ref={canvasRef} className="hidden" />
       <ConsentModal isOpen={showConsent} onClose={() => setShowConsent(false)} />
     </div>
