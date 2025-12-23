@@ -420,12 +420,19 @@ const Camera = () => {
     if (state === 'identity') return;
     const initCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-          audio: false
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        aspectRatio: { ideal: 1280 / 720 }  // Или 16 / 9 ≈ 1.777 для landscape
+      },
+      audio: false
         });
         streamRef.current = stream;
         const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+    addLog(`Stream dims: ${settings.width}x${settings.height} | aspect: ${(settings.width / settings.height).toFixed(3)}`);
         const capabilities = track.getCapabilities?.() as Record<string, unknown>;
         if (capabilities && 'zoom' in capabilities) {
           setSupportsHardwareZoom(true);
@@ -433,7 +440,9 @@ const Camera = () => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
+          addLog(`Video element: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
         }
+        
         const faceMesh = new FaceMesh({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
