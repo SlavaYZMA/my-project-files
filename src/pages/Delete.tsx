@@ -12,6 +12,7 @@ const translations = {
     errorMessage: 'Ошибка удаления',
     deleteButton: 'Удалить навсегда',
     back: '← Вернуться на главную',
+    switchLang: 'EN',
   },
   en: {
     title: 'Delete Eyes',
@@ -21,11 +22,12 @@ const translations = {
     errorMessage: 'Delete error',
     deleteButton: 'Delete Forever',
     back: '← Back to Home',
+    switchLang: 'RU',
   },
 };
 
 const Delete = () => {
-  const { language } = useLanguage(); // предполагаем, что 'ru' или 'en'
+  const { language, setLanguage } = useLanguage(); // предполагаем, что context поддерживает setLanguage
   const t = translations[language] || translations.ru;
 
   const [searchParams] = useSearchParams();
@@ -82,9 +84,20 @@ const Delete = () => {
     }
   };
 
+  const toggleLanguage = () => {
+    setLanguage(language === 'ru' ? 'en' : 'ru');
+  };
+
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center font-mono">
-      <div className="text-center max-w-md p-8">
+      <div className="text-center max-w-md p-8 relative">
+        <button
+          onClick={toggleLanguage}
+          className="absolute top-4 right-4 px-3 py-1 bg-white/10 hover:bg-white/20 rounded transition"
+        >
+          {t.switchLang}
+        </button>
+
         <h1 className="text-2xl md:text-3xl mb-8">{t.title}</h1>
 
         {status === 'idle' && (
