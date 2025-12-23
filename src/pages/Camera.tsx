@@ -285,69 +285,50 @@ const Camera = () => {
       let isActive = true;
 
       const drawFrame = () => {
-  if (!videoRef.current || !isActive) return;
-  const video = videoRef.current;
+        if (!videoRef.current || !isActive) return;
+        const video = videoRef.current;
 
-  const videoW = video.videoWidth;
-  const videoH = video.videoHeight;
-  
-  // 1. ОПРЕДЕЛЯЕМ ОРИЕНТАЦИЮ
-  const isPortrait = videoH > videoW;
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
 
-  // 2. БАЗОВЫЙ МАСШТАБ
-  // Если видео вертикальное, нам нужно масштабировать его по ширине так, 
-  // чтобы не вырезать слишком узкий кусок.
-  const scaleX = CONFIG.FRAME_WIDTH / videoW;
-  const scaleY = CONFIG.FRAME_HEIGHT / videoH;
-  
-  // Для заполнения 512x128 из вертикального видео 720x1280 
-  // нам важнее всего ширина (scaleX)
-  const baseScale = isPortrait ? scaleX : Math.max(scaleX, scaleY);
+        // Новый надёжный расчёт кропа
+        const scaleX = CONFIG.FRAME_WIDTH / videoW;
+        const scaleY = CONFIG.FRAME_HEIGHT / videoH;
+        const baseScale = Math.max(scaleX, scaleY); // cover
+        const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+        const finalScale = baseScale * effectiveZoom;
 
-  // 3. ЗУМ
-  const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-  
-  // На мобилках при вертикальном видео зум 1.5 слишком сильный, 
-  // так как исходная ширина всего 720. Уменьшим влияние зума для портрета или оставим как есть:
-  const finalScale = baseScale * effectiveZoom;
+        const sw = CONFIG.FRAME_WIDTH / finalScale;
+        const sh = CONFIG.FRAME_HEIGHT / finalScale;
+        const sx = (videoW - sw) / 2;
+        const sy = (videoH - sh) / 2;
 
-  // 4. ГЕОМЕТРИЯ ЗАХВАТА
-  let sw = CONFIG.FRAME_WIDTH / finalScale;
-  let sh = CONFIG.FRAME_HEIGHT / finalScale;
+        // Лог на первом кадре
+        frameCounterRef.current += 1;
+        if (frameCounterRef.current === 1) {
+          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
+        }
 
-  // ОГРАНИЧЕНИЕ: sw не может быть больше реальной ширины видео
-  if (sw > videoW) {
-      sw = videoW;
-      sh = sw * (CONFIG.FRAME_HEIGHT / CONFIG.FRAME_WIDTH);
-  }
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-  const sx = (videoW - sw) / 2;
-  const sy = (videoH - sh) / 2;
+        ctx.save();
+        ctx.translate(CONFIG.FRAME_WIDTH, 0);
+        ctx.scale(-1, 1);
 
-  // ЛОГ ДЛЯ ПРОВЕРКИ (только первый кадр)
-  if (frameCounter === 1) {
-    addLog(`[Final Calc] Mode:${isPortrait?'Port':'Land'} sw:${Math.round(sw)} Zoom:${effectiveZoom}`);
-  }
+        try {
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        } catch (e) {}
 
-  // Отрисовка
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-  
-  ctx.save();
-  ctx.translate(CONFIG.FRAME_WIDTH, 0);
-  ctx.scale(-1, 1);
-  try {
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-  } catch (e) {}
-  ctx.restore();
+        ctx.restore();
 
-  // Рамка (оставим пока для уверенности)
-  ctx.strokeStyle = '#FF0000';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        // Тестовая красная рамка
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-  if (isActive) requestAnimationFrame(drawFrame);
-};
+        if (isActive) requestAnimationFrame(drawFrame);
+      };
 
       drawFrame();
 
