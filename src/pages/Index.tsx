@@ -197,7 +197,7 @@ const Index = () => {
               <span className="text-white/40 ml-4">{t('index.subtitle2')}</span>
             </h2>
 
-            <div className="max-w-lg mx-auto mb-12 text-center font-sans">
+            <div className="max-w-2xl mx-auto mb-12 text-center font-sans">
   <p className="text-white font-bold text-sm md:text-base leading-tight mb-2 tracking-wide">
     {t('index.descriptionParagraph1')}
   </p>
