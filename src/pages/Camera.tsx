@@ -705,13 +705,19 @@ const Camera = () => {
                 addLog(`[Preview Vid] Video Resolution: ${v.videoWidth}x${v.videoHeight}`);
                 addLog(`[Preview Element] Display Size: ${v.clientWidth}x${v.clientHeight}`);
                 addLog(`[Preview Container] Container Size: ${CONFIG.FRAME_WIDTH}x${CONFIG.FRAME_HEIGHT}`);
+                // Проверяем соотношение сторон
+                const expectedRatio = CONFIG.FRAME_WIDTH / CONFIG.FRAME_HEIGHT;
+                const actualRatio = v.videoWidth / v.videoHeight;
+                addLog(`[Preview Ratio] Expected: ${expectedRatio.toFixed(2)}, Actual: ${actualRatio.toFixed(2)}, Match: ${Math.abs(expectedRatio - actualRatio) < 0.1}`);
               }}
               className={`${state !== 'preview' ? 'hidden' : ''}`}
               style={{
-                width: CONFIG.FRAME_WIDTH,
-                height: CONFIG.FRAME_HEIGHT,
-                objectFit: 'fill',
+                width: `${CONFIG.FRAME_WIDTH}px`,
+                height: `${CONFIG.FRAME_HEIGHT}px`,
+                objectFit: 'contain',
+                objectPosition: 'center',
                 border: '2px solid yellow',
+                display: state === 'preview' ? 'block' : 'none',
               }}
             />
             {state !== 'preview' && (
