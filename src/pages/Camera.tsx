@@ -280,42 +280,64 @@ const Camera = () => {
       const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true })!;
       canvas.width = CONFIG.FRAME_WIDTH;
       canvas.height = CONFIG.FRAME_HEIGHT;
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       let isActive = true;
 
       const drawFrame = () => {
         if (!videoRef.current || !isActive) return;
         const video = videoRef.current;
+        
+        // Физические размеры потока (в Chrome может быть 1280x720)
         const videoW = video.videoWidth;
         const videoH = video.videoHeight;
 
-        const scaleX = CONFIG.FRAME_WIDTH / videoW;
-        const scaleY = CONFIG.FRAME_HEIGHT / videoH;
+        // Проверяем, "лежит" ли поток на боку (Landscape поток при Portrait экране)
+        const isRotated = videoW > videoH && video.clientWidth < video.clientHeight;
+        
+        // Логические размеры для правильного кропа
+        const logicW = isRotated ? videoH : videoW;
+        const logicH = isRotated ? videoW : videoH;
+
+        const scaleX = CONFIG.FRAME_WIDTH / logicW;
+        const scaleY = CONFIG.FRAME_HEIGHT / logicH;
         const baseScale = Math.max(scaleX, scaleY);
         const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
         const finalScale = baseScale * effectiveZoom;
+        
         const sw = CONFIG.FRAME_WIDTH / finalScale;
         const sh = CONFIG.FRAME_HEIGHT / finalScale;
-        const sx = (videoW - sw) / 2;
-        const sy = (videoH - sh) / 2;
+        
+        // Центрируем кроп
+        const sx = (logicW - sw) / 2;
+        const sy = (logicH - sh) / 2;
 
-        frameCounterRef.current += 1;
-        if (frameCounterRef.current === 1) {
-          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
+        if (frameCounterRef.current === 0) {
+          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Rotated:${isRotated} | sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
         }
+        frameCounterRef.current += 1;
 
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
         ctx.save();
+        
+        // Зеркалирование для фронтальной камеры
         ctx.translate(CONFIG.FRAME_WIDTH, 0);
         ctx.scale(-1, 1);
+
         try {
-          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-        } catch (e) {}
+          if (isRotated) {
+            // ВАЖНО: Если поток повернут, меняем sx/sy и sw/sh местами для drawImage
+            // Мы вырезаем область из "лежачего" кадра так, будто он стоит вертикально
+            ctx.drawImage(video, sy, sx, sh, sw, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+          } else {
+            ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+          }
+        } catch (e: any) {
+          if (frameCounterRef.current === 1) addLog("Draw Error: " + e.message);
+        }
         ctx.restore();
 
+        // Красная рамка для контроля границ кадра
         ctx.strokeStyle = '#FF0000';
         ctx.lineWidth = 2;
         ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
