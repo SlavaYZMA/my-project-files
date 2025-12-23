@@ -241,8 +241,8 @@ const Camera = () => {
     onFaceMeshResultsRef.current = onFaceMeshResults;
   }, [onFaceMeshResults]);
 
-  const drawLoop = useCallback(() => {
-    if (stateRef.current === 'preview' || !videoRef.current || !canvasRef.current) return;
+  const drawFrame = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d', { alpha: false, desynchronized: true })!;
     const video = videoRef.current;
     const videoW = video.videoWidth;
@@ -271,8 +271,13 @@ const Camera = () => {
       ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
     } catch (e) {}
     ctx.restore();
-    requestAnimationFrame(drawLoop);
   }, [zoom, supportsHardwareZoom, addLog]);
+
+  const drawLoop = useCallback(() => {
+    if (stateRef.current === 'preview') return;
+    drawFrame();
+    requestAnimationFrame(drawLoop);
+  }, [drawFrame]);
 
   const startRecording = useCallback(() => {
     if (stateRef.current !== 'idle' || isStartingRef.current) {
@@ -304,85 +309,89 @@ const Camera = () => {
       const canvas = canvasRef.current!;
       canvas.width = CONFIG.FRAME_WIDTH;
       canvas.height = CONFIG.FRAME_HEIGHT;
-      const canvasStream = canvas.captureStream(CONFIG.FPS);
-      let mimeType = '';
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      if (isMobile) {
-        if (MediaRecorder.isTypeSupported('video/mp4')) {
-          mimeType = 'video/mp4';
-          addLog('Selected codec: video/mp4 (Mobile)');
-        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
-          mimeType = 'video/webm;codecs=h264';
-          addLog('Selected codec: h264 (Mobile)');
+      // Force draw first frame
+      drawFrame();
+      setTimeout(() => {
+        const canvasStream = canvas.captureStream(CONFIG.FPS);
+        let mimeType = '';
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) {
+          if (MediaRecorder.isTypeSupported('video/mp4')) {
+            mimeType = 'video/mp4';
+            addLog('Selected codec: video/mp4 (Mobile)');
+          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+            mimeType = 'video/webm;codecs=h264';
+            addLog('Selected codec: h264 (Mobile)');
+          } else {
+            mimeType = 'video/webm';
+            addLog('Selected codec: generic webm');
+          }
         } else {
-          mimeType = 'video/webm';
-          addLog('Selected codec: generic webm');
+          if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+            mimeType = 'video/webm;codecs=vp9';
+          } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+            mimeType = 'video/webm;codecs=vp8';
+          } else {
+            mimeType = 'video/webm';
+          }
+          addLog(`Selected codec: ${mimeType} (Desktop)`);
         }
-      } else {
-        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-          mimeType = 'video/webm;codecs=vp9';
-        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
-          mimeType = 'video/webm;codecs=vp8';
-        } else {
-          mimeType = 'video/webm';
+        const recorderOptions: MediaRecorderOptions = { mimeType };
+        if (!isMobile) recorderOptions.videoBitsPerSecond = CONFIG.BITRATE;
+        try {
+          const recorder = new MediaRecorder(canvasStream, recorderOptions);
+          recorderRef.current = recorder;
+          recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              chunksRef.current.push(e.data);
+            }
+          };
+          recorder.onstop = () => {
+            const blob = new Blob(chunksRef.current, { type: mimeType });
+            addLog(`Stopped. Size: ${blob.size}, Type: ${mimeType}`);
+            setRecordedBlob(blob);
+            setState('preview');
+            if (previewRef.current) {
+              if (previewRef.current.src) URL.revokeObjectURL(previewRef.current.src);
+              const url = URL.createObjectURL(blob);
+              previewRef.current.src = url;
+              const playPromise = previewRef.current.play();
+              if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                  addLog('Preview Play Error: ' + error.message);
+                });
+              }
+            }
+          };
+          recorder.start(100);
+          addLog('MediaRecorder started');
+          let secondsLeft = CONFIG.RECORD_SECONDS;
+          const startTime = Date.now();
+          const timerId = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const newSecondsLeft = CONFIG.RECORD_SECONDS - elapsed;
+            if (newSecondsLeft !== secondsLeft) {
+              secondsLeft = newSecondsLeft;
+              if (secondsLeft >= 0) {
+                setRecordTime(secondsLeft);
+              }
+            }
+            if (secondsLeft <= 0) {
+              clearInterval(timerId);
+              if (recorderRef.current?.state === 'recording') {
+                recorderRef.current.stop();
+              }
+            }
+          }, 100);
+          recordIntervalRef.current = timerId;
+        } catch (e: any) {
+          addLog(`Recorder init failed: ${e.message}`);
+          isStartingRef.current = false;
+          setState('idle');
         }
-        addLog(`Selected codec: ${mimeType} (Desktop)`);
-      }
-      const recorderOptions: MediaRecorderOptions = { mimeType };
-      if (!isMobile) recorderOptions.videoBitsPerSecond = CONFIG.BITRATE;
-      try {
-        const recorder = new MediaRecorder(canvasStream, recorderOptions);
-        recorderRef.current = recorder;
-        recorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) {
-            chunksRef.current.push(e.data);
-          }
-        };
-        recorder.onstop = () => {
-          const blob = new Blob(chunksRef.current, { type: mimeType });
-          addLog(`Stopped. Size: ${blob.size}, Type: ${mimeType}`);
-          setRecordedBlob(blob);
-          setState('preview');
-          if (previewRef.current) {
-            if (previewRef.current.src) URL.revokeObjectURL(previewRef.current.src);
-            const url = URL.createObjectURL(blob);
-            previewRef.current.src = url;
-            const playPromise = previewRef.current.play();
-            if (playPromise !== undefined) {
-              playPromise.catch(error => {
-                addLog('Preview Play Error: ' + error.message);
-              });
-            }
-          }
-        };
-        recorder.start(100);
-        addLog('MediaRecorder started');
-        let secondsLeft = CONFIG.RECORD_SECONDS;
-        const startTime = Date.now();
-        const timerId = setInterval(() => {
-          const elapsed = Math.floor((Date.now() - startTime) / 1000);
-          const newSecondsLeft = CONFIG.RECORD_SECONDS - elapsed;
-          if (newSecondsLeft !== secondsLeft) {
-            secondsLeft = newSecondsLeft;
-            if (secondsLeft >= 0) {
-              setRecordTime(secondsLeft);
-            }
-          }
-          if (secondsLeft <= 0) {
-            clearInterval(timerId);
-            if (recorderRef.current?.state === 'recording') {
-              recorderRef.current.stop();
-            }
-          }
-        }, 100);
-        recordIntervalRef.current = timerId;
-      } catch (e: any) {
-        addLog(`Recorder init failed: ${e.message}`);
-        isStartingRef.current = false;
-        setState('idle');
-      }
+      }, 50);
     };
-  }, [zoom, supportsHardwareZoom, addLog]);
+  }, [zoom, supportsHardwareZoom, addLog, drawFrame]);
 
   useEffect(() => {
     if (state === 'identity') return;
