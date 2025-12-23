@@ -689,10 +689,13 @@ const Camera = () => {
               autoPlay
               playsInline
               muted
-              className={`absolute top-1/2 left-1/2 min-w-full min-h-full object-cover ${state === 'preview' ? 'hidden' : ''}`}
-              style={{
-                transform: `translate(-50%, -50%) scaleX(-1) scale(${supportsHardwareZoom ? 1 : zoom})`,
-              }}
+              className={`absolute inset-0 w-full h-full object-cover ${state === 'preview' ? 'hidden' : ''}`}
+    style={{
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover', // ВАЖНО: Обрезает 720x1280 под размер 512x128
+      transform: 'scaleX(-1)', // Зеркалирование
+    }}
             />
             <video
               ref={previewRef}
@@ -705,10 +708,10 @@ const Camera = () => {
                 addLog(`[Preview Vid] Video Resolution: ${v.videoWidth}x${v.videoHeight}`);
                 addLog(`[Preview Element] Display Size: ${v.clientWidth}x${v.clientHeight}`);
               }}
-              className={`w-full h-full object-contain ${state !== 'preview' ? 'hidden' : ''}`}
-              style={{
-                border: '2px solid yellow',
-              }}
+              className={`absolute inset-0 w-full h-full object-contain ${state !== 'preview' ? 'hidden' : ''}`}
+    style={{
+      backgroundColor: '#000', // Черный фон, если пропорции чуть не совпадут
+    }}
             />
             {state !== 'preview' && (
               <div className="absolute inset-0 pointer-events-none">
