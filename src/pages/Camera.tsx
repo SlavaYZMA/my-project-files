@@ -285,50 +285,62 @@ const Camera = () => {
       let isActive = true;
 
       const drawFrame = () => {
-        if (!videoRef.current || !isActive) return;
-        const video = videoRef.current;
+  if (!videoRef.current || !isActive) return;
+  const video = videoRef.current;
+  let videoW = video.videoWidth;
+  let videoH = video.videoHeight;
+  const isPortrait = videoH > videoW;
 
-        const videoW = video.videoWidth;
-        const videoH = video.videoHeight;
+  // Если portrait, ротируем на 90° clockwise (для front camera)
+  ctx.save();
+  if (isPortrait) {
+    addLog('Portrait detected - rotating frame');
+    ctx.translate(CONFIG.FRAME_WIDTH / 2, CONFIG.FRAME_HEIGHT / 2);
+    ctx.rotate(Math.PI / 2);  // 90° clockwise
+    ctx.translate(-CONFIG.FRAME_HEIGHT / 2, -CONFIG.FRAME_WIDTH / 2);
+    // Swap dims для расчётов (теперь "landscape")
+    [videoW, videoH] = [videoH, videoW];
+  }
 
-        // Новый надёжный расчёт кропа
-        const scaleX = CONFIG.FRAME_WIDTH / videoW;
-        const scaleY = CONFIG.FRAME_HEIGHT / videoH;
-        const baseScale = Math.max(scaleX, scaleY); // cover
-        const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-        const finalScale = baseScale * effectiveZoom;
+  // Расчёт кропа (теперь на "landscape" dims)
+  const scaleX = CONFIG.FRAME_WIDTH / videoW;
+  const scaleY = CONFIG.FRAME_HEIGHT / videoH;
+  const baseScale = Math.max(scaleX, scaleY);  // cover
+  const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+  const finalScale = baseScale * effectiveZoom;
+  const sw = CONFIG.FRAME_WIDTH / finalScale;
+  const sh = CONFIG.FRAME_HEIGHT / finalScale;
+  const sx = (videoW - sw) / 2;
+  const sy = (videoH - sh) / 2;
 
-        const sw = CONFIG.FRAME_WIDTH / finalScale;
-        const sh = CONFIG.FRAME_HEIGHT / finalScale;
-        const sx = (videoW - sw) / 2;
-        const sy = (videoH - sh) / 2;
+  // Лог на первом кадре (без изменений)
+  frameCounterRef.current += 1;
+  if (frameCounterRef.current === 1) {
+    addLog(`[Crop Calc] Video:${videoW}x${videoH} (post-swap) | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom} | Portrait:${isPortrait}`);
+  }
 
-        // Лог на первом кадре
-        frameCounterRef.current += 1;
-        if (frameCounterRef.current === 1) {
-          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
-        }
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+  // Зеркало (после ротации)
+  ctx.translate(CONFIG.FRAME_WIDTH, 0);
+  ctx.scale(-1, 1);
 
-        ctx.save();
-        ctx.translate(CONFIG.FRAME_WIDTH, 0);
-        ctx.scale(-1, 1);
+  try {
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+  } catch (e) {
+    addLog(`Draw error: ${e.message}`);
+  }
 
-        try {
-          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-        } catch (e) {}
+  ctx.restore();  // Восстановить после ротации/зеркала
 
-        ctx.restore();
+  // Тестовая рамка (без изменений)
+  ctx.strokeStyle = '#FF0000';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-        // Тестовая красная рамка
-        ctx.strokeStyle = '#FF0000';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-
-        if (isActive) requestAnimationFrame(drawFrame);
-      };
+  if (isActive) requestAnimationFrame(drawFrame);
+};
 
       drawFrame();
 
