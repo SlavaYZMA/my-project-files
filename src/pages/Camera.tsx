@@ -285,70 +285,50 @@ const Camera = () => {
       let isActive = true;
 
       const drawFrame = () => {
-  if (!videoRef.current || !isActive) return;
-  const video = videoRef.current;
-  let videoW = video.videoWidth;
-  let videoH = video.videoHeight;
-  const isPortrait = videoH > videoW;
+        if (!videoRef.current || !isActive) return;
+        const video = videoRef.current;
 
-  // Подготавливаем контекст
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
 
-  ctx.save();
+        // Новый надёжный расчёт кропа
+        const scaleX = CONFIG.FRAME_WIDTH / videoW;
+        const scaleY = CONFIG.FRAME_HEIGHT / videoH;
+        const baseScale = Math.max(scaleX, scaleY); // cover
+        const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
+        const finalScale = baseScale * effectiveZoom;
 
-  let drawW = CONFIG.FRAME_WIDTH;
-  let drawH = CONFIG.FRAME_HEIGHT;
+        const sw = CONFIG.FRAME_WIDTH / finalScale;
+        const sh = CONFIG.FRAME_HEIGHT / finalScale;
+        const sx = (videoW - sw) / 2;
+        const sy = (videoH - sh) / 2;
 
-  if (isPortrait) {
-    // Поворачиваем canvas на 90° по часовой стрелке, чтобы portrait → landscape
-    ctx.translate(CONFIG.FRAME_WIDTH / 2, CONFIG.FRAME_HEIGHT / 2);
-    ctx.rotate(Math.PI / 2);
-    ctx.translate(-CONFIG.FRAME_HEIGHT / 2, -CONFIG.FRAME_WIDTH / 2);
+        // Лог на первом кадре
+        frameCounterRef.current += 1;
+        if (frameCounterRef.current === 1) {
+          addLog(`[Crop Calc] Video:${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom}`);
+        }
 
-    // Меняем местами ширину и высоту для расчётов кропа
-    [videoW, videoH] = [videoH, videoW];
-    [drawW, drawH] = [drawH, drawW]; // После ротации координаты меняются
-  }
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-  // Теперь рассчитываем кроп как для landscape (videoW > videoH)
-  const scaleX = CONFIG.FRAME_WIDTH / videoW;
-  const scaleY = CONFIG.FRAME_HEIGHT / videoH;
-  const baseScale = Math.max(scaleX, scaleY); // cover
-  const effectiveZoom = supportsHardwareZoom ? 1 : zoom;
-  const finalScale = baseScale * effectiveZoom;
+        ctx.save();
+        ctx.translate(CONFIG.FRAME_WIDTH, 0);
+        ctx.scale(-1, 1);
 
-  const sw = CONFIG.FRAME_WIDTH / finalScale;
-  const sh = CONFIG.FRAME_HEIGHT / finalScale;
-  const sx = (videoW - sw) / 2;
-  const sy = (videoH - sh) / 2;
+        try {
+          ctx.drawImage(video, sx, sy, sw, sh, 0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
+        } catch (e) {}
 
-  // Лог только на первом кадре
-  frameCounterRef.current += 1;
-  if (frameCounterRef.current === 1) {
-    addLog(`[Crop Calc] Original: ${video.videoWidth}x${video.videoHeight} | Rotated: ${videoW}x${videoH} | Crop: sx:${sx.toFixed(1)} sy:${sy.toFixed(1)} sw:${sw.toFixed(1)} sh:${sh.toFixed(1)} | Zoom:${effectiveZoom} | Portrait:${isPortrait}`);
-  }
+        ctx.restore();
 
-  // Зеркальное отражение (фронтальная камера)
-  ctx.translate(drawW, 0);
-  ctx.scale(-1, 1);
+        // Тестовая красная рамка
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
 
-  // Рисуем кадр
-  try {
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, drawW, drawH);
-  } catch (e) {
-    addLog(`Draw error: ${e.message}`);
-  }
-
-  ctx.restore();
-
-  // Тестовая красная рамка (вне ротации и зеркала)
-  ctx.strokeStyle = '#FF0000';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(0, 0, CONFIG.FRAME_WIDTH, CONFIG.FRAME_HEIGHT);
-
-  if (isActive) requestAnimationFrame(drawFrame);
-};
+        if (isActive) requestAnimationFrame(drawFrame);
+      };
 
       drawFrame();
 
