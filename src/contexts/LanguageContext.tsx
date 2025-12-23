@@ -86,7 +86,6 @@ export const translations: Translations = {
     ru: '⚠️ Предупреждение о триггерах: Сильные эмоции во время участия — это нормальная реакция.',
     en: '⚠️ Trigger Warning: Strong emotions during participation are normal.'
   },
-  'support.hotlines': { ru: 'Горячие линии (по желанию):', en: 'Hotlines (optional):' },
 
   // Canvas
   'canvas.loading': { ru: 'ЗАГРУЗКА...', en: 'LOADING...' },
