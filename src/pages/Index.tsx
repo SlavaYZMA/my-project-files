@@ -27,6 +27,7 @@ const Index = () => {
       const { data } = await supabase
         .from('eyes')
         .select('cid')
+        .order('created_at', { ascending: false })
         .limit(20);
       if (data) setBackgroundEyes(data);
     };
@@ -43,20 +44,20 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden font-mono">
-      
-      {/* Background canvas preview - very dim */}
+
+      {/* Background eyes grid */}
       {backgroundEyes.length > 0 && (
-        <div className="absolute inset-0 opacity-[0.08] pointer-events-none">
-          <div className="flex flex-wrap w-full">
-            {backgroundEyes.map((eye, i) => (
-              <div key={eye.cid + i} className="flex-shrink-0" style={{ width: 512, height: 128 }}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 w-full h-full">
+            {backgroundEyes.map((eye) => (
+              <div key={eye.cid} className="relative w-full aspect-[4/1] overflow-hidden bg-black">
                 <video
                   src={`${storageUrl}${eye.cid}`}
                   autoPlay
                   loop
                   muted
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               </div>
             ))}
@@ -74,7 +75,7 @@ const Index = () => {
             </h1>
             <LanguageSwitcher />
           </div>
-          
+
           {/* Navigation menu */}
           <nav className="flex flex-wrap gap-x-4 gap-y-2 md:gap-x-6 relative z-20">
             {navItems.map(item => (
@@ -97,7 +98,7 @@ const Index = () => {
               <span className="text-white">{t('index.subtitle1')}</span>
               <span className="text-white/40 ml-4">{t('index.subtitle2')}</span>
             </h2>
-            
+
             <p className="text-white/40 text-sm md:text-base leading-relaxed max-w-lg mx-auto mb-12 tracking-wide">
               {t('index.description')}
             </p>
