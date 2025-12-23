@@ -754,25 +754,7 @@ const Camera = () => {
             )}
           </div>
         )}
-        {state === 'idle' && !supportsHardwareZoom && (
-          <div className="flex items-center gap-4 mb-6">
-            <button
-              onClick={() => adjustZoom(-CONFIG.ZOOM_STEP)}
-              className="w-10 h-10 border border-white/20 rounded flex items-center justify-center hover:bg-white/10 transition-colors"
-            >
-              <Minus size={16} />
-            </button>
-            <span className="text-white/40 text-sm w-16 text-center font-mono tabular-nums">
-              {zoom.toFixed(1)}×
-            </span>
-            <button
-              onClick={() => adjustZoom(CONFIG.ZOOM_STEP)}
-              className="w-10 h-10 border border-white/20 rounded flex items-center justify-center hover:bg-white/10 transition-colors"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-        )}
+        
         {state === 'preview' && !deleteUrl && (
           <div className="flex flex-col gap-4 w-full max-w-xs">
             <div className="border border-white/10 p-4 mb-2">
