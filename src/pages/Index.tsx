@@ -190,34 +190,43 @@ const Index = () => {
         </header>
 
         {/* Main */}
-        <main className="flex-1 flex flex-col items-center justify-center px-6 -mt-10">
-          <div className="max-w-2xl text-center">
-            <h2 className="text-3xl md:text-5xl lg:text-6xl font-light tracking-wide mb-8 leading-tight">
-              <span className="text-white">{t('index.subtitle1')}</span>
-              <span className="text-white/40 ml-4">{t('index.subtitle2')}</span>
-            </h2>
+<main className="flex-1 flex flex-col items-center justify-center px-6 -mt-10">
+  <div className="max-w-2xl text-center">
+    <h2 className="text-3xl md:text-5xl lg:text-6xl font-light tracking-wide mb-8 leading-tight">
+      <span className="text-white">{t('index.subtitle1')}</span>
+      <span className="text-white/40 ml-4">{t('index.subtitle2')}</span>
+    </h2>
 
-            <p className="text-white/40 text-sm md:text-base leading-relaxed max-w-lg mx-auto mb-12 tracking-wide">
-              {t('index.description')}
-            </p>
+    <div className="max-w-lg mx-auto mb-12">
+      <p className="text-white/40 text-base md:text-base leading-relaxed mb-4 tracking-wide">
+        Цифровая видео-инсталляция, основанная на анонимном участии женщин, переживших гендерное насилие.
+      </p>
+      <p className="text-white/30 text-sm md:text-sm leading-relaxed mb-4 tracking-wide">
+        Это пространство фиксирует само существование тех, кто пережил травму — без требования быть увиденными определённым образом.
+      </p>
+      <p className="text-white/40 text-sm md:text-sm leading-relaxed tracking-wide">
+        Проект не репрезентирует насилие и не предлагает его визуального образа.
+      </p>
+    </div>
 
-            {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/camera"
-                className="px-10 py-4 border border-white text-white text-sm tracking-[0.2em] hover:bg-white hover:text-black transition-all duration-300"
-              >
-                {t('index.record')}
-              </Link>
-              <Link
-                to="/canvas"
-                className="px-10 py-4 border border-white/30 text-white/60 text-sm tracking-[0.2em] hover:border-white hover:text-white transition-all duration-300"
-              >
-                {t('index.watch')}
-              </Link>
-            </div>
-          </div>
-        </main>
+    {/* Action buttons */}
+    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+      <Link
+        to="/camera"
+        className="px-10 py-4 border border-white text-white text-sm tracking-[0.2em] hover:bg-white hover:text-black transition-all duration-300"
+      >
+        {t('index.record')}
+      </Link>
+      <Link
+        to="/canvas"
+        className="px-10 py-4 border border-white/30 text-white/60 text-sm tracking-[0.2em] hover:border-white hover:text-white transition-all duration-300"
+      >
+        {t('index.watch')}
+      </Link>
+    </div>
+  </div>
+</main>
+
 
         {/* Footer */}
         <footer className="p-4 md:p-6 flex items-center justify-center">
