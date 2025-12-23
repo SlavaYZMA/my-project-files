@@ -702,9 +702,16 @@ const Camera = () => {
               autoPlay
               onLoadedMetadata={(e) => {
                 const v = e.currentTarget;
+                const container = v.parentElement;
                 addLog(`[Preview Vid] Video Resolution: ${v.videoWidth}x${v.videoHeight}`);
                 addLog(`[Preview Element] Display Size: ${v.clientWidth}x${v.clientHeight}`);
                 addLog(`[Preview Container] Container Size: ${CONFIG.FRAME_WIDTH}x${CONFIG.FRAME_HEIGHT}`);
+                addLog(`[Viewport] Window: ${window.innerWidth}x${window.innerHeight}`);
+                if (container) {
+                  addLog(`[Parent Container] Actual: ${container.clientWidth}x${container.clientHeight}`);
+                  const rect = container.getBoundingClientRect();
+                  addLog(`[Parent BoundingRect] ${rect.width.toFixed(1)}x${rect.height.toFixed(1)}`);
+                }
                 // Проверяем соотношение сторон
                 const expectedRatio = CONFIG.FRAME_WIDTH / CONFIG.FRAME_HEIGHT;
                 const actualRatio = v.videoWidth / v.videoHeight;
