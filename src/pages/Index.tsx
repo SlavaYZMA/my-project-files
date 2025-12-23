@@ -45,14 +45,14 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden font-mono">
 
-   {/* Background eyes grid - затемнённые, без промежутков */}
+{/* Background eyes grid - затемнённые, без пробелов */}
 {backgroundEyes.length > 0 && (
   <div className="absolute inset-0 pointer-events-none">
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-0 w-full h-full">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-0 w-full">
       {backgroundEyes.map((eye) => (
         <div
           key={eye.cid}
-          className="relative w-full aspect-[4/1] overflow-hidden bg-black border-none"
+          className="relative w-full aspect-[4/1] overflow-hidden bg-black border-none m-0 p-0"
         >
           <video
             src={`${storageUrl}${eye.cid}`}
