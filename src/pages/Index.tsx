@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Plus, Minus } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import AboutModal from '@/components/modals/AboutModal';
@@ -198,16 +197,12 @@ const Index = () => {
             </h2>
 
             <div className="max-w-lg mx-auto mb-12">
-              {t('index.description')
-                .split('\n\n')
-                .map((paragraph, idx) => (
-                  <p
-                    key={idx}
-                    className={`text-white/${idx === 1 ? '30' : '40'} text-base md:text-base leading-relaxed mb-4 tracking-wide`}
-                  >
-                    {paragraph}
-                  </p>
-                ))}
+              <p className="text-white/40 text-base md:text-base leading-relaxed mb-4 tracking-wide">
+                {t('index.descriptionParagraph1')}
+              </p>
+              <p className="text-white/30 text-sm md:text-sm leading-relaxed tracking-wide">
+                {t('index.descriptionParagraph2')}
+              </p>
             </div>
 
             {/* Action buttons */}
