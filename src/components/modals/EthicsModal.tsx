@@ -37,7 +37,7 @@ const EthicsModal = ({ isOpen, onClose }: Props) => {
             href="mailto:eternalcanvas@proton.me" 
             className="text-white/80 hover:text-white transition-colors underline"
           >
-            eternalcanvas@proton.me
+            vistrum.netlify@gmail.com
           </a>
         </p>
         <p className="text-white/60 mt-2">
@@ -75,7 +75,7 @@ const EthicsModal = ({ isOpen, onClose }: Props) => {
             href="mailto:eternalcanvas@proton.me" 
             className="text-white/80 hover:text-white transition-colors underline"
           >
-            eternalcanvas@proton.me
+            vistrum.netlify@gmail.com
           </a>
         </p>
         <p className="text-white/60 mt-2">
