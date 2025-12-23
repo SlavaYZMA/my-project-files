@@ -9,6 +9,7 @@ import EthicsModal from '@/components/modals/EthicsModal';
 import ParticipateModal from '@/components/modals/ParticipateModal';
 import ContactsModal from '@/components/modals/ContactsModal';
 
+
 interface EyeRecord {
   cid: string;
   created_at?: string;
@@ -196,14 +197,14 @@ const Index = () => {
               <span className="text-white/40 ml-4">{t('index.subtitle2')}</span>
             </h2>
 
-            <div className="max-w-lg mx-auto mb-12 text-left">
-  <p className="text-white text-base md:text-base font-bold leading-relaxed mb-4 tracking-wide">
+            <div className="max-w-lg mx-auto mb-12 text-center font-sans">
+  <p className="text-white font-bold text-2xl md:text-3xl leading-tight mb-4 tracking-wide">
     {t('index.descriptionParagraph1')}
   </p>
-  <p className="text-white/40 text-sm md:text-sm leading-relaxed mb-4 tracking-wide">
+  <p className="text-white/40 text-lg md:text-xl leading-relaxed mb-4 tracking-wide">
     {t('index.descriptionParagraph2')}
   </p>
-  <p className="text-white/40 text-base md:text-base leading-relaxed tracking-wide">
+  <p className="text-white/40 text-base md:text-lg leading-relaxed tracking-wide">
     {t('index.descriptionParagraph3')}
   </p>
 </div>
