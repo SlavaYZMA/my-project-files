@@ -13,7 +13,7 @@ const EthicsModal = ({ isOpen, onClose }: Props) => {
     <div className="space-y-8 text-sm leading-relaxed">
       <section>
         <p>
-          Проект <strong>«Присутствуют»</strong> построен на принципах бережного и травмо-информированного взаимодействия с участницами. Этика здесь не просто сопровождает работу — она определяет её форму и границы, обеспечивая безопасность и уважение к личному опыту.
+          Проект <strong>«Присутствуют»</strong> построен на принципах бережного и травмо-информированного взаимодействия с участницами.
         </p>
       </section>
 
@@ -51,7 +51,7 @@ const EthicsModal = ({ isOpen, onClose }: Props) => {
     <div className="space-y-8 text-sm leading-relaxed">
       <section>
         <p>
-          The project <strong>"Present"</strong> is based on principles of careful and trauma-informed interaction with participants. Ethics here do not merely accompany the work — they define its structure and boundaries, ensuring safety and respect for personal experience.
+          The project <strong>"Present"</strong> is based on principles of careful and trauma-informed interaction with participants.
         </p>
       </section>
 
