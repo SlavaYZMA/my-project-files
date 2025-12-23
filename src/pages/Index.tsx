@@ -45,25 +45,29 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden font-mono">
 
-    {/* Background eyes grid - полностью сплошные и затемнённые */}
+   {/* Background eyes grid - затемнённые, без промежутков */}
 {backgroundEyes.length > 0 && (
   <div className="absolute inset-0 pointer-events-none">
     <div className="grid grid-cols-2 md:grid-cols-4 gap-0 w-full h-full">
       {backgroundEyes.map((eye) => (
-        <div key={eye.cid} className="w-full h-full">
+        <div
+          key={eye.cid}
+          className="relative w-full aspect-[4/1] overflow-hidden bg-black border-none"
+        >
           <video
             src={`${storageUrl}${eye.cid}`}
             autoPlay
             loop
             muted
             playsInline
-            className="w-full h-full object-cover opacity-10 block"
+            className="w-full h-full object-contain opacity-10 block"
           />
         </div>
       ))}
     </div>
   </div>
 )}
+
 
 
       {/* Content */}
