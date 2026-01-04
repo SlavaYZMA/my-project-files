@@ -784,13 +784,7 @@ const Camera = () => {
             >
               {t('camera.save')}
             </button>
-            <button
-              onClick={resetRecording}
-              disabled={isSaving}
-              className="w-full px-8 py-3 border border-white/30 text-white/60 text-sm uppercase tracking-widest hover:bg-white/10 transition-colors disabled:opacity-50"
-            >
-              {t('camera.retake')}
-            </button>
+          
             <button
               onClick={downloadVideo}
               className="w-full px-8 py-3 border border-white/20 text-white/40 text-xs uppercase tracking-widest hover:bg-white/5 transition-colors"
