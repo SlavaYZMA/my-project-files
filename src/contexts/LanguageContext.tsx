@@ -12,7 +12,7 @@ interface Translations {
 export const translations: Translations = {
   // Navigation
   'nav.about': { ru: 'О проекте', en: 'About' },
-  'nav.statement': { ru: 'Заявление художника', en: 'Artist Statement' },
+  'nav.statement': { ru: 'Заявление художницы', en: 'Artist Statement' },
   'nav.ethics': { ru: 'Этика', en: 'Ethics' },
   'nav.participate': { ru: 'Как участвовать', en: 'How to Participate' },
   'nav.contacts': { ru: 'Контакты', en: 'Contacts' },
