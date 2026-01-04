@@ -24,7 +24,7 @@ const ArtistStatementModal = ({ isOpen, onClose }: Props) => {
         Инсталляция существует как постоянно расширяющееся цифровое поле, состоящее из отдельных взглядов в непрерывном визуальном потоке. Зритель оказывается внутри этого поля, где каждая пара глаз представляет уникальное присутствие, не сводимое к личной истории, статистике или образу жертвы.
       </p>
       <p className="text-white/40 italic">
-        Это не история и не статистика. Этот проект не документирует насилие. Он документирует устойчивость присутствия после него.
+        Проект не документирует насилие. Проект документирует устойчивость присутствия после.
       </p>
     </div>
   );
@@ -44,7 +44,7 @@ const ArtistStatementModal = ({ isOpen, onClose }: Props) => {
         The installation exists as a constantly expanding digital field, where individual gazes connect into a continuous visual flow. The viewer is immersed in this field, where each pair of eyes represents a unique presence, not reducible to personal story, statistics, or victimhood.
       </p>
       <p className="text-white/40 italic">
-        This is not a story or statistics. This project does not document violence. It documents the persistence of presence after it.
+       This project does not document violence. This project documents the persistence of presence after.
       </p>
     </div>
   );
