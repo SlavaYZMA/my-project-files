@@ -483,9 +483,12 @@ const Camera = () => {
           await videoRef.current.play();
         }
 
-        // А-4: Self-hosted MediaPipe — не CDN
+        // Загрузка с CDN (работает сразу без настройки)
+        // Для полной анонимности можно перейти на self-hosting:
+        // скачать файлы в public/mediapipe/ и заменить путь на `/mediapipe/${file}`
         const faceMesh = new FaceMesh({
-          locateFile: (file) => `/mediapipe/${file}`,
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
         });
         faceMesh.setOptions({
           maxNumFaces: 1,
